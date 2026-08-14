@@ -6,13 +6,14 @@ import Header from './components/Header.jsx';
 import ProviderList from './components/ProviderList.jsx';
 import ProviderDetail from './components/ProviderDetail.jsx';
 import FlatView from './components/FlatView.jsx';
+import Experiences from './components/Experiences.jsx';
 
 // View state lives in the URL hash so a refresh (or a shared link) restores
 // the same provider and filters.
 function readHash() {
   const p = new URLSearchParams(window.location.hash.replace(/^#/, ''));
   return {
-    view: p.get('view') === 'flat' ? 'flat' : 'browse',
+    view: ['flat', 'experiences'].includes(p.get('view')) ? p.get('view') : 'browse',
     providerId: p.get('p') || null,
     q: p.get('q') || '',
     status: p.get('s') || 'all',
@@ -52,7 +53,18 @@ export default function App() {
         ]);
         const { count: sourceCount } = await supabase
           .from('sources').select('id', { count: 'exact', head: false }).limit(1);
-        setData({ providers, facets, services, runs, sourceCount: sourceCount ?? 0 });
+
+        // Stage 3a is optional: if the taxonomy hasn't been generated yet, or
+        // its anon read policies aren't applied, the rest of the app still works.
+        let experiences = [], links = [];
+        try {
+          experiences = await fetchAll('experiences', 'id, name, slug, description, cluster_notes');
+          links = await fetchAll('experience_facets', 'experience_id, facet_id');
+        } catch (e) {
+          console.warn('[experiences] not available:', e.message);
+        }
+
+        setData({ providers, facets, services, runs, experiences, links, sourceCount: sourceCount ?? 0 });
         // restore a provider from the hash once the data exists
         const want = readHash().providerId;
         if (want) setSelected(providers.find((p) => p.id === want) || null);
@@ -121,6 +133,7 @@ export default function App() {
       facets: data.facets.length,
       services: data.services.length,
       sources: data.sourceCount,
+      experiences: data.experiences.length,
       spend: data.runs.reduce((a, r) => a + runCost(r), 0)
     };
   }, [data]);
@@ -150,7 +163,15 @@ export default function App() {
   return (
     <div className="app">
       <Header stats={stats} view={view} setView={setView} />
-      {view === 'browse' ? (
+      {view === 'experiences' ? (
+        <Experiences
+          experiences={data.experiences}
+          links={data.links}
+          facets={data.facets}
+          providerById={providerById}
+          onOpenProvider={openProvider}
+        />
+      ) : view === 'browse' ? (
         <div className="body">
           <ProviderList
             providers={data.providers}

@@ -19,12 +19,17 @@ export default function Header({ stats, view, setView }) {
       <div className="stat"><b>{fmt(stats.services)}</b><i>services</i></div>
       <div className="stat"><b>{fmt(stats.sources)}</b><i>sources</i></div>
 
+      {stats.experiences > 0 && (
+        <div className="stat"><b>{fmt(stats.experiences)}</b><i>clusters</i></div>
+      )}
+
       <div className="sep" />
       <div className="stat"><b>${stats.spend.toFixed(2)}</b><i>spend</i></div>
 
       <div className="spacer" />
       <div className="toggle">
         <button className={view === 'browse' ? 'on' : ''} onClick={() => setView('browse')}>Browse</button>
+        <button className={view === 'experiences' ? 'on' : ''} onClick={() => setView('experiences')}>Experiences</button>
         <button className={view === 'flat' ? 'on' : ''} onClick={() => setView('flat')}>Flat view</button>
       </div>
     </div>
