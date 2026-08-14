@@ -23,6 +23,7 @@ export const GROUPS = [
   'Production & AV',
   'Staffing',
   'Gifting',
+  'Planning & DMC',
   'Other'
 ];
 
@@ -47,7 +48,12 @@ const RULES = [
 
   ['Staffing', /staffing|brand_ambassador|security|crowd_management|registration|promotional_staff|convention_sales/],
 
-  ['Gifting', /gift|promotional_products|souvenir|artisan|retail|wholesale/]
+  ['Gifting', /gift|promotional_products|souvenir|artisan|retail|wholesale/],
+
+  // Last: the planning/DMC cluster the v1.1 report surfaced in Other. Sits
+  // after everything else so a DMC that also lists a venue or tour tag is
+  // grouped by the concrete thing it supplies.
+  ['Planning & DMC', /event_planning|event_coordination|event_management|destination_management|destination_marketing|dmc|meeting_plann|corporate_meetings|experiential_marketing|brand(ed)?_activation|promotional_services|creative_media_agency|private_events$|group_event$/]
 ];
 
 const unmatched = new Set();

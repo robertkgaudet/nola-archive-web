@@ -119,6 +119,50 @@ input[type=text]:focus, select:focus { outline: 2px solid var(--accent); outline
 
 .count { font-size: 11px; color: var(--fg-faint); margin-left: auto; white-space: nowrap; }
 
+/* ---------- refine panel ---------- */
+.refine { margin-top: 6px; border-top: 1px solid var(--line); padding-top: 5px; }
+
+.refine-bar { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+
+.refine-toggle {
+  font: inherit; font-size: 11px; padding: 1px 3px; border: 0; cursor: pointer;
+  background: none; color: var(--fg-dim); display: inline-flex; align-items: center; gap: 4px;
+}
+.refine-toggle:hover { color: var(--fg); }
+.refine-n { color: var(--fg-faint); }
+.caret { display: inline-block; transition: transform .12s ease; font-size: 9px; }
+.caret.open { transform: rotate(90deg); }
+
+.clear-all {
+  font: inherit; font-size: 10px; padding: 1px 5px; cursor: pointer;
+  background: none; border: 0; color: var(--accent); text-decoration: underline;
+}
+
+/* capped so the provider list always keeps the majority of the pane */
+.refine-panel {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  max-height: min(200px, 30vh); overflow-y: auto;
+  margin-top: 6px; padding: 6px; border-radius: 5px;
+  background: var(--bg-sunk); border: 1px solid var(--line);
+}
+
+.pill {
+  font: inherit; font-size: 11px; padding: 2px 7px; cursor: pointer;
+  border: 1px solid var(--line-strong); border-radius: 10px;
+  background: var(--bg); color: var(--fg-dim); white-space: nowrap;
+}
+.pill:hover { border-color: var(--accent); color: var(--fg); }
+.pill b { font-weight: 500; color: var(--fg-faint); margin-left: 3px; }
+.pill.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.pill.on b { color: rgba(255,255,255,.75); }
+.pill .x { margin-left: 2px; font-weight: 700; }
+.active-chip { font-size: 10px; padding: 1px 6px; }
+
+.show-all {
+  font: inherit; font-size: 11px; padding: 2px 7px; cursor: pointer;
+  background: none; border: 0; color: var(--accent); text-decoration: underline;
+}
+
 .list { flex: 1 1 auto; overflow-y: auto; min-height: 0; }
 .row {
   display: flex; align-items: center; gap: 7px;
@@ -201,11 +245,12 @@ input[type=text]:focus, select:focus { outline: 2px solid var(--accent); outline
 /* ---------- flat view ---------- */
 .flat { padding: 0; display: flex; flex-direction: column; height: 100%; }
 .flat-tools {
-  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
   padding: 9px 12px; border-bottom: 1px solid var(--line); background: var(--bg-alt);
 }
-.flat-tools input[type=text] { width: 280px; }
+.flat-tools .tool-row { flex-wrap: wrap; gap: 8px; }
+.flat-tools input[type=text] { width: 260px; flex: 0 0 auto; }
 .flat-tools select { width: auto; }
+.flat-tools .refine { border-top: 0; padding-top: 0; }
 .flat-scroll { flex: 1 1 auto; overflow: auto; min-height: 0; }
 
 table { border-collapse: collapse; width: 100%; font-size: 12px; }

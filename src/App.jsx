@@ -16,7 +16,8 @@ function readHash() {
     providerId: p.get('p') || null,
     q: p.get('q') || '',
     status: p.get('s') || 'all',
-    group: p.get('c') || 'all'
+    group: p.get('c') || 'all',
+    tags: p.get('t') ? p.get('t').split(',').filter(Boolean) : []
   };
 }
 
@@ -29,6 +30,7 @@ export default function App() {
   const [q, setQ] = useState(initial.q);
   const [status, setStatus] = useState(initial.status);
   const [group, setGroup] = useState(initial.group);
+  const [tags, setTags] = useState(initial.tags);
 
   useEffect(() => {
     if (configError) return;
@@ -63,12 +65,13 @@ export default function App() {
     if (q) p.set('q', q);
     if (status !== 'all') p.set('s', status);
     if (group !== 'all') p.set('c', group);
+    if (tags.length) p.set('t', tags.join(','));
     const next = p.toString();
     const target = next ? `#${next}` : '';
     if (window.location.hash !== target) {
       window.history.replaceState(null, '', `${window.location.pathname}${target}`);
     }
-  }, [data, view, selected, q, status, group]);
+  }, [data, view, selected, q, status, group, tags]);
 
   const providerById = useMemo(
     () => Object.fromEntries((data?.providers || []).map((p) => [p.id, p])),
@@ -152,6 +155,7 @@ export default function App() {
             q={q} setQ={setQ}
             status={status} setStatus={setStatus}
             group={group} setGroup={setGroup}
+            tags={tags} setTags={setTags}
           />
           <ProviderDetail
             provider={selected}
