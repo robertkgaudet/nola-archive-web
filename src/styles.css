@@ -103,7 +103,13 @@ input[type=text], select {
 }
 input[type=text]:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 
-.chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
+/* two compact rows total — the list gets everything below */
+.tool-row { display: flex; align-items: center; gap: 6px; }
+.tool-row + .tool-row { margin-top: 6px; }
+.cat-select { flex: 0 0 150px; width: 150px; }
+.tool-row input[type=text] { flex: 1 1 auto; min-width: 0; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .chip {
   font: inherit; font-size: 11px; padding: 2px 7px; cursor: pointer;
   border: 1px solid var(--line-strong); border-radius: 10px;
@@ -111,7 +117,7 @@ input[type=text]:focus, select:focus { outline: 2px solid var(--accent); outline
 }
 .chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 
-.count { font-size: 11px; color: var(--fg-faint); margin-top: 7px; }
+.count { font-size: 11px; color: var(--fg-faint); margin-left: auto; white-space: nowrap; }
 
 .list { flex: 1 1 auto; overflow-y: auto; min-height: 0; }
 .row {
@@ -124,7 +130,15 @@ input[type=text]:focus, select:focus { outline: 2px solid var(--accent); outline
 .row.sel .row-n, .row.sel .row-sub { color: rgba(255,255,255,.75); }
 .row-name { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row-sub { font-size: 11px; color: var(--fg-faint); }
-.row-n { font-size: 11px; color: var(--fg-dim); font-variant-numeric: tabular-nums; }
+.row-group {
+  font-size: 10px; color: var(--fg-faint); white-space: nowrap;
+  flex: 0 0 auto; max-width: 96px; overflow: hidden; text-overflow: ellipsis;
+}
+.row.sel .row-group { color: rgba(255,255,255,.7); }
+.row-n {
+  font-size: 11px; color: var(--fg-dim); font-variant-numeric: tabular-nums;
+  flex: 0 0 24px; text-align: right;
+}
 
 .dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 7px; }
 .dot.complete { background: var(--hi); }

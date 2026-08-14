@@ -1,23 +1,35 @@
 import { useMemo, useState } from 'react';
 import { FACET_ORDER, orderOf } from '../constants.js';
+import { GROUPS } from '../categoryMap.js';
 
 const LIMIT = 2000; // keep the DOM sane; the counter tells you when it's truncating
 
-export default function FlatView({ facets, providerById, onOpen }) {
+export default function FlatView({ facets, providerById, groupOf, onOpen }) {
   const [q, setQ] = useState('');
   const [type, setType] = useState('all');
   const [conf, setConf] = useState('all');
+  const [group, setGroup] = useState('all');
 
   const types = useMemo(() => {
     const present = new Set(facets.map((f) => f.facet_type));
     return FACET_ORDER.filter((t) => present.has(t));
   }, [facets]);
 
+  const groupCounts = useMemo(() => {
+    const m = {};
+    for (const f of facets) {
+      const g = groupOf[f.provider_id] || 'Other';
+      m[g] = (m[g] || 0) + 1;
+    }
+    return m;
+  }, [facets, groupOf]);
+
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return facets
       .filter((f) => (type === 'all' ? true : f.facet_type === type))
       .filter((f) => (conf === 'all' ? true : f.confidence === conf))
+      .filter((f) => (group === 'all' ? true : (groupOf[f.provider_id] || 'Other') === group))
       .filter((f) => {
         if (!needle) return true;
         return (
@@ -31,7 +43,7 @@ export default function FlatView({ facets, providerById, onOpen }) {
           orderOf(a.facet_type) - orderOf(b.facet_type) ||
           (providerById[a.provider_id]?.name || '').localeCompare(providerById[b.provider_id]?.name || '')
       );
-  }, [facets, q, type, conf, providerById]);
+  }, [facets, q, type, conf, group, providerById, groupOf]);
 
   const shown = rows.slice(0, LIMIT);
 
@@ -44,6 +56,12 @@ export default function FlatView({ facets, providerById, onOpen }) {
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
+        <select value={group} onChange={(e) => setGroup(e.target.value)}>
+          <option value="all">all categories</option>
+          {GROUPS.filter((g) => groupCounts[g]).map((g) => (
+            <option key={g} value={g}>{g} ({groupCounts[g]})</option>
+          ))}
+        </select>
         <select value={type} onChange={(e) => setType(e.target.value)}>
           <option value="all">all types</option>
           {types.map((t) => <option key={t} value={t}>{t}</option>)}

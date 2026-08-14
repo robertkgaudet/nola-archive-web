@@ -1,61 +1,67 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import { GROUPS, groupForProvider } from '../categoryMap.js';
 
-export default function ProviderList({ providers, facetCounts, selected, onSelect }) {
-  const [q, setQ] = useState('');
-  const [status, setStatus] = useState('all');
-  const [category, setCategory] = useState('all');
-
+export default function ProviderList({
+  providers, facetCounts, groupOf, selected, onSelect,
+  q, setQ, status, setStatus, group, setGroup
+}) {
   const statuses = useMemo(
     () => [...new Set(providers.map((p) => p.status))].sort(),
     [providers]
   );
 
-  const categories = useMemo(() => {
-    const c = new Map();
-    for (const p of providers) for (const x of p.categories || []) c.set(x, (c.get(x) || 0) + 1);
-    // long tail of one-off model-generated categories would swamp the chip row
-    return [...c.entries()].filter(([, n]) => n >= 4).sort((a, b) => b[1] - a[1]).map(([k]) => k);
-  }, [providers]);
+  // counts reflect the OTHER active filters, so the dropdown tells you what
+  // you'd actually get rather than a global total
+  const groupCounts = useMemo(() => {
+    const base = providers.filter((p) => (status === 'all' ? true : p.status === status));
+    const m = {};
+    for (const p of base) {
+      const g = groupOf[p.id] || 'Other';
+      m[g] = (m[g] || 0) + 1;
+    }
+    return { m, total: base.length };
+  }, [providers, status, groupOf]);
 
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return providers
       .filter((p) => (status === 'all' ? true : p.status === status))
-      .filter((p) => (category === 'all' ? true : (p.categories || []).includes(category)))
+      .filter((p) => (group === 'all' ? true : (groupOf[p.id] || 'Other') === group))
       .filter((p) => (!needle ? true : p.name.toLowerCase().includes(needle)))
       .sort((a, b) => (facetCounts[b.id] || 0) - (facetCounts[a.id] || 0) || a.name.localeCompare(b.name));
-  }, [providers, q, status, category, facetCounts]);
+  }, [providers, q, status, group, facetCounts, groupOf]);
 
   return (
     <div className="left">
       <div className="left-tools">
-        <input
-          type="text"
-          placeholder="Search provider name…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
-        <div className="chips">
+        <div className="tool-row">
+          <select
+            className="cat-select"
+            value={group}
+            onChange={(e) => setGroup(e.target.value)}
+          >
+            <option value="all">All categories ({groupCounts.total})</option>
+            {GROUPS.filter((g) => groupCounts.m[g]).map((g) => (
+              <option key={g} value={g}>{g} ({groupCounts.m[g]})</option>
+            ))}
+          </select>
+          <input
+            type="text"
+            placeholder="Search name…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+        </div>
+
+        <div className="tool-row chips">
           <button className={`chip ${status === 'all' ? 'on' : ''}`} onClick={() => setStatus('all')}>all</button>
           {statuses.map((s) => (
             <button key={s} className={`chip ${status === s ? 'on' : ''}`} onClick={() => setStatus(s)}>
               {s.replace('_', ' ')}
             </button>
           ))}
+          <span className="count">{rows.length} shown · by facet count</span>
         </div>
-        {categories.length > 0 && (
-          <div className="chips">
-            <button className={`chip ${category === 'all' ? 'on' : ''}`} onClick={() => setCategory('all')}>
-              any category
-            </button>
-            {categories.map((c) => (
-              <button key={c} className={`chip ${category === c ? 'on' : ''}`} onClick={() => setCategory(c)}>
-                {c.replace(/_/g, ' ')}
-              </button>
-            ))}
-          </div>
-        )}
-        <div className="count">{rows.length} of {providers.length} providers · sorted by facet count</div>
       </div>
 
       <div className="list">
@@ -68,7 +74,7 @@ export default function ProviderList({ providers, facetCounts, selected, onSelec
           >
             <span className={`dot ${p.status}`} title={p.status} />
             <span className="row-name">{p.name}</span>
-            {p.city && p.city !== 'New Orleans' && <span className="row-sub">{p.city}</span>}
+            <span className="row-group">{groupOf[p.id] || 'Other'}</span>
             <span className="row-n">{facetCounts[p.id] || 0}</span>
           </div>
         ))}

@@ -1,16 +1,34 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase, fetchAll, configError } from './supabase.js';
 import { runCost } from './constants.js';
+import { groupForProvider, reportUnmatched } from './categoryMap.js';
 import Header from './components/Header.jsx';
 import ProviderList from './components/ProviderList.jsx';
 import ProviderDetail from './components/ProviderDetail.jsx';
 import FlatView from './components/FlatView.jsx';
 
+// View state lives in the URL hash so a refresh (or a shared link) restores
+// the same provider and filters.
+function readHash() {
+  const p = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  return {
+    view: p.get('view') === 'flat' ? 'flat' : 'browse',
+    providerId: p.get('p') || null,
+    q: p.get('q') || '',
+    status: p.get('s') || 'all',
+    group: p.get('c') || 'all'
+  };
+}
+
 export default function App() {
+  const initial = readHash();
   const [data, setData] = useState(null);
   const [err, setErr] = useState(configError);
-  const [view, setView] = useState('browse');
+  const [view, setView] = useState(initial.view);
   const [selected, setSelected] = useState(null);
+  const [q, setQ] = useState(initial.q);
+  const [status, setStatus] = useState(initial.status);
+  const [group, setGroup] = useState(initial.group);
 
   useEffect(() => {
     if (configError) return;
@@ -27,16 +45,44 @@ export default function App() {
         const { count: sourceCount } = await supabase
           .from('sources').select('id', { count: 'exact', head: false }).limit(1);
         setData({ providers, facets, services, runs, sourceCount: sourceCount ?? 0 });
+        // restore a provider from the hash once the data exists
+        const want = readHash().providerId;
+        if (want) setSelected(providers.find((p) => p.id === want) || null);
       } catch (e) {
         setErr(e.message);
       }
     })();
   }, []);
 
+  // keep the hash in sync with view state
+  useEffect(() => {
+    if (!data) return;
+    const p = new URLSearchParams();
+    if (view !== 'browse') p.set('view', view);
+    if (selected) p.set('p', selected.id);
+    if (q) p.set('q', q);
+    if (status !== 'all') p.set('s', status);
+    if (group !== 'all') p.set('c', group);
+    const next = p.toString();
+    const target = next ? `#${next}` : '';
+    if (window.location.hash !== target) {
+      window.history.replaceState(null, '', `${window.location.pathname}${target}`);
+    }
+  }, [data, view, selected, q, status, group]);
+
   const providerById = useMemo(
     () => Object.fromEntries((data?.providers || []).map((p) => [p.id, p])),
     [data]
   );
+
+  // provider id -> display group, computed once
+  const groupOf = useMemo(() => {
+    if (!data) return {};
+    const m = {};
+    for (const p of data.providers) m[p.id] = groupForProvider(p);
+    reportUnmatched();
+    return m;
+  }, [data]);
 
   const facetsByProvider = useMemo(() => {
     const m = {};
@@ -100,8 +146,12 @@ export default function App() {
           <ProviderList
             providers={data.providers}
             facetCounts={facetCounts}
+            groupOf={groupOf}
             selected={selected}
             onSelect={setSelected}
+            q={q} setQ={setQ}
+            status={status} setStatus={setStatus}
+            group={group} setGroup={setGroup}
           />
           <ProviderDetail
             provider={selected}
@@ -111,7 +161,12 @@ export default function App() {
         </div>
       ) : (
         <div className="body">
-          <FlatView facets={data.facets} providerById={providerById} onOpen={openProvider} />
+          <FlatView
+            facets={data.facets}
+            providerById={providerById}
+            groupOf={groupOf}
+            onOpen={openProvider}
+          />
         </div>
       )}
     </div>
