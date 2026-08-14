@@ -39,7 +39,13 @@ export default function App() {
         // The whole archive is a few MB — loading it up front makes search,
         // filtering, and the flat view instant with no round trips.
         const [providers, facets, services, runs] = await Promise.all([
-          fetchAll('providers', 'id, name, slug, website, city, categories, status, discovered_from'),
+          // merged tombstones are excluded everywhere — list, counters, flat
+          // view — so the UI shows real businesses, not merge history
+          fetchAll(
+            'providers',
+            'id, name, slug, website, city, categories, status, discovered_from',
+            (q) => q.neq('status', 'merged')
+          ),
           fetchAll('facets', 'id, provider_id, facet_type, label, value, value_numeric, unit, confidence, sources(url)'),
           fetchAll('services', 'id, provider_id, name, description, confidence, sources(url)'),
           fetchAll('research_runs', 'input_tokens, output_tokens, cache_read_tokens, searches_used')

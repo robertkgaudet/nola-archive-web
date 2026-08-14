@@ -14,11 +14,15 @@ export const configError = !url
 export const supabase = configError ? null : createClient(url, key);
 
 // PostgREST caps a single response at 1000 rows; page until short.
-export async function fetchAll(table, select) {
+// `refine` receives the query builder so callers can add filters (e.g. to
+// exclude merged tombstones) while keeping the paging in one place.
+export async function fetchAll(table, select, refine) {
   const out = [];
   const size = 1000;
   for (let from = 0; ; from += size) {
-    const { data, error } = await supabase.from(table).select(select).range(from, from + size - 1);
+    let query = supabase.from(table).select(select);
+    if (refine) query = refine(query);
+    const { data, error } = await query.range(from, from + size - 1);
     if (error) {
       const detail = [error.code, error.message, error.hint].filter(Boolean).join(' — ');
       throw new Error(`${table}: ${detail || 'request failed'}`);
