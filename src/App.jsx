@@ -7,13 +7,14 @@ import ProviderList from './components/ProviderList.jsx';
 import ProviderDetail from './components/ProviderDetail.jsx';
 import FlatView from './components/FlatView.jsx';
 import Experiences from './components/Experiences.jsx';
+import Pages from './components/Pages.jsx';
 
 // View state lives in the URL hash so a refresh (or a shared link) restores
 // the same provider and filters.
 function readHash() {
   const p = new URLSearchParams(window.location.hash.replace(/^#/, ''));
   return {
-    view: ['flat', 'experiences'].includes(p.get('view')) ? p.get('view') : 'browse',
+    view: ['flat', 'experiences', 'pages'].includes(p.get('view')) ? p.get('view') : 'browse',
     providerId: p.get('p') || null,
     q: p.get('q') || '',
     status: p.get('s') || 'all',
@@ -64,7 +65,15 @@ export default function App() {
           console.warn('[experiences] not available:', e.message);
         }
 
-        setData({ providers, facets, services, runs, experiences, links, sourceCount: sourceCount ?? 0 });
+        // Stage 3b pages are optional in exactly the same way.
+        let genPages = [];
+        try {
+          genPages = await fetchAll('pages', 'id, experience_id, slug, title, direct_answer, body_md, faq, related_slugs, meta_description, claim_map, status, shield_status, shield_hits, claim_audit_status, claim_audit_issues');
+        } catch (e) {
+          console.warn('[pages] not available:', e.message);
+        }
+
+        setData({ providers, facets, services, runs, experiences, links, genPages, sourceCount: sourceCount ?? 0 });
         // restore a provider from the hash once the data exists
         const want = readHash().providerId;
         if (want) setSelected(providers.find((p) => p.id === want) || null);
@@ -134,6 +143,7 @@ export default function App() {
       services: data.services.length,
       sources: data.sourceCount,
       experiences: data.experiences.length,
+      pages: data.genPages.length,
       spend: data.runs.reduce((a, r) => a + runCost(r), 0)
     };
   }, [data]);
@@ -163,7 +173,14 @@ export default function App() {
   return (
     <div className="app">
       <Header stats={stats} view={view} setView={setView} />
-      {view === 'experiences' ? (
+      {view === 'pages' ? (
+        <Pages
+          pages={data.genPages}
+          facets={data.facets}
+          providerById={providerById}
+          onOpenProvider={openProvider}
+        />
+      ) : view === 'experiences' ? (
         <Experiences
           experiences={data.experiences}
           links={data.links}

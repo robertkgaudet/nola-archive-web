@@ -283,3 +283,22 @@ tr.rel td { background: var(--rel-bg); }
   background: var(--bg); color: var(--fg); font-family: ui-monospace, Menlo, Consolas, monospace;
   font-size: 12px; overflow-wrap: anywhere;
 }
+
+/* ---------- generated page rendering ---------- */
+.page-render { max-width: 720px; }
+.page-render h1 { font-size: 26px; line-height: 1.25; letter-spacing: -0.4px; margin: 4px 0 12px; }
+.page-render .dek {
+  font-size: 15px; line-height: 1.6; color: var(--fg);
+  padding: 12px 14px; border-left: 3px solid var(--accent);
+  background: var(--bg-alt); border-radius: 0 6px 6px 0; margin: 0 0 18px;
+}
+.page-body h2, .page-render h2 { font-size: 17px; margin: 22px 0 6px; letter-spacing: -0.2px; }
+.page-body h3 { font-size: 15px; margin: 18px 0 4px; }
+.page-body p, .page-render > p { font-size: 14px; line-height: 1.65; margin: 0 0 12px; }
+.page-body ul { margin: 0 0 12px; padding-left: 20px; }
+.page-body li { font-size: 14px; line-height: 1.6; margin-bottom: 4px; }
+.faq-item { padding: 9px 0; border-bottom: 1px solid var(--line); }
+.faq-q { font-weight: 650; font-size: 14px; }
+.faq-a { font-size: 14px; line-height: 1.6; color: var(--fg-dim); margin-top: 3px; }
+.related, .metadesc { font-size: 12px; color: var(--fg-faint); margin-top: 16px; }
+.metadesc b { color: var(--fg-dim); margin-right: 6px; }
