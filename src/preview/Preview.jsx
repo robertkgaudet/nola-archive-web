@@ -1,31 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase, fetchAll, configError } from '../supabase.js';
 import { THEMES, THEME_BLURB, themeFor } from '../themeMap.js';
+import { SiteHeader, SiteFooter, EndCta, IronRule, RFP_URL } from './Shell.jsx';
 import './preview.css';
-
-/**
- * The signature: an abstracted French Quarter wrought-iron rule. Scrollwork
- * curls taper out from a stylised fleur-de-lis. Drawn as thin brass strokes —
- * the only New Orleans signal on the page, and deliberately the only place
- * any boldness is spent.
- */
-function IronRule({ tight = false }) {
-  return (
-    <div className={`pv-iron${tight ? ' tight' : ''}`} aria-hidden="true">
-      <svg viewBox="0 0 340 34" fill="none" stroke="currentColor" strokeWidth="1.1"
-           strokeLinecap="round" strokeLinejoin="round">
-        <path d="M4 17h96" opacity=".45" />
-        <path d="M100 17c12 0 12-9 22-9s10 9 0 9-10-9-22-9" opacity=".8" />
-        <path d="M240 17c-12 0-12-9-22-9s-10 9 0 9 10-9 22-9" opacity=".8" />
-        <path d="M240 17h96" opacity=".45" />
-        <path d="M170 4c-4 6-4 9 0 13 4-4 4-7 0-13z" />
-        <path d="M170 17c-7-2-11 1-11 5s4 6 11 4c7 2 11-1 11-4s-4-7-11-5z" />
-        <path d="M170 17v13" />
-        <path d="M163 30h14" opacity=".7" />
-      </svg>
-    </div>
-  );
-}
 
 /**
  * Fade-up on entry. Arms itself only when it can genuinely observe and reveal;
@@ -238,10 +215,7 @@ function Article({ page, all, theme, onOpen, onBack, onRfp }) {
           </div>
         )}
 
-        <div className="pv-endcta">
-          <p>Ready to talk about your programme?</p>
-          <button className="pv-cta" onClick={onRfp}>Request a Proposal</button>
-        </div>
+        <EndCta />
 
         {related.length > 0 && (
           <div className="pv-related">
@@ -292,18 +266,7 @@ export default function Preview() {
   return (
     <div className="pv">
       <div className="pv-wrap">
-        <header className="pv-head">
-          <img className="pv-logo" src="/brand/noladmc-logo.png" alt="NOLA DMC" />
-          <nav className="pv-nav">
-            {THEMES.map((t) => (
-              <button key={t} onClick={() => {
-                setOpen(null);
-                setTimeout(() => document.getElementById(t.replace(/\W+/g, '-'))?.scrollIntoView({ behavior: 'smooth' }), 30);
-              }}>{t}</button>
-            ))}
-          </nav>
-          <button className="pv-cta" onClick={() => setRfp(true)}>Request a Proposal</button>
-        </header>
+        <SiteHeader active="collection" onLogoClick={undefined} />
       </div>
 
       {open ? (
@@ -374,17 +337,8 @@ export default function Preview() {
 
           <IronRule />
 
-          <div className="pv-endcta reveal">
-            <p>Ready to talk about your programme?</p>
-            <a className="pv-cta" href="https://noladmc.com/request-for-a-proposal/" target="_blank" rel="noreferrer">
-              Request a Proposal
-            </a>
-          </div>
-
-          <footer className="pv-foot">
-            <span>NOLA DMC — Locally Woman Owned &amp; Operated</span>
-            <span>Preview — prepared for review</span>
-          </footer>
+          <div className="reveal"><EndCta /></div>
+          <SiteFooter />
         </div>
       )}
 

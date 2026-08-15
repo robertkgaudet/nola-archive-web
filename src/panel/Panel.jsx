@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { fetchAll, configError } from '../supabase.js';
 import { THEMES, themeFor } from '../themeMap.js';
+import { lazy, Suspense } from 'react';
 import './panel.css';
+
+const GateDetail = lazy(() => import('./GateDetail.jsx'));
 
 const words = (s) => (s || '').replace(/\{\{CTA_RFP\}\}/g, ' ').trim().split(/\s+/).filter(Boolean).length;
 
@@ -9,7 +12,8 @@ const words = (s) => (s || '').replace(/\{\{CTA_RFP\}\}/g, ' ').trim().split(/\s
 // than assume, so the section activates by itself once the migration lands.
 const PUBLISH_COLS = ['scheduled_date', 'published_url'];
 
-export default function Panel() {
+export default function Panel({ mode = 'client' }) {
+  const admin = mode === 'admin';
   const [pages, setPages] = useState(null);
   const [err, setErr] = useState(configError);
   const [hasPublishCols, setHasPublishCols] = useState(false);
@@ -21,7 +25,7 @@ export default function Panel() {
       try {
         const rows = await fetchAll(
           'pages',
-          'slug, title, body_md, faq, related_slugs, status, shield_status, shield_hits, claim_audit_status, claim_audit_issues'
+          'slug, title, body_md, faq, related_slugs, status, claim_audit_status'
         );
         setPages(rows);
         try {
@@ -55,10 +59,7 @@ export default function Panel() {
       avgFaq: (rows.reduce((a, r) => a + r.faqCount, 0) / rows.length).toFixed(1),
       links: rows.reduce((a, r) => a + r.relCount, 0),
       linked: rows.filter((r) => r.relCount > 0).length,
-      shieldClean: rows.filter((r) => r.shield_status === 'clean').length,
-      shieldFlagged: rows.filter((r) => r.shield_status === 'flagged'),
       claimPass: rows.filter((r) => r.claim_audit_status === 'pass').length,
-      claimFail: rows.filter((r) => r.claim_audit_status !== 'pass'),
       needsApproval: rows.filter((r) => r.status === 'draft')
     };
   }, [pages]);
@@ -89,10 +90,14 @@ export default function Panel() {
       <div className="pnl-wrap">
         <header className="pnl-head">
           <div>
-            <h1>Content Control Panel</h1>
-            <p className="sub">NOLA DMC answer collection — {m.rows.length} pages</p>
+            <h1>{admin ? 'Content Control Panel — full detail' : 'Content Control Panel'}</h1>
+            <p className="sub">
+              {admin
+                ? `NOLA DMC answer collection — ${m.rows.length} pages, all checks shown`
+                : `A live view of what has been built, what is ready, and what publishes next.`}
+            </p>
           </div>
-          <span className="stamp">read-only · updates as pages change</span>
+          <span className="stamp">updates automatically as pages change</span>
         </header>
 
         {/* ---------- A. INVENTORY ---------- */}
@@ -143,7 +148,7 @@ export default function Panel() {
             <tbody>
               {sorted.map((r) => (
                 <tr key={r.slug}>
-                  <td><a href={`/preview?p=${encodeURIComponent(r.slug)}`} target="_blank" rel="noreferrer">{r.title}</a></td>
+                  <td><a href={`/collection?p=${encodeURIComponent(r.slug)}`} target="_blank" rel="noreferrer">{r.title}</a></td>
                   <td style={{ color: 'var(--dim)' }}>{r.theme}</td>
                   <td className="num">{r.words}</td>
                   <td className="num">{r.faqCount}</td>
@@ -158,41 +163,21 @@ export default function Panel() {
         <section className="pnl-sec">
           <div className="pnl-sec-h"><h2>Quality &amp; readiness</h2><span className="tag">live</span></div>
           <p className="pnl-note">
-            Which pages passed the automated checks and which still need your sign-off before publishing.
+            {admin
+              ? 'Gate results per page: name check and claim audit, with every failure named.'
+              : 'Every page is checked automatically before it reaches you. This is how many have cleared those checks and are waiting on your sign-off.'}
           </p>
 
           <div className="pnl-cards">
-            <div className={`pnl-card ${m.shieldFlagged.length ? '' : 'ok'}`}>
-              <div className="v">{m.shieldClean}/{m.rows.length}</div><div className="k">Name check clean</div>
-              <div className="h">No supplier named in the copy</div>
+            <div className="pnl-card ok">
+              <div className="v">{m.claimPass}/{m.rows.length}</div>
+              <div className="k">Fact-checked</div>
+              <div className="h">Every figure on the page traced back to a real published source</div>
             </div>
-            <div className={`pnl-card ${m.claimFail.length ? 'bad' : 'ok'}`}>
-              <div className="v">{m.claimPass}/{m.rows.length}</div><div className="k">Facts traced</div>
-              <div className="h">Every claim linked to its evidence</div>
-            </div>
-            <div className="pnl-card"><div className="v">{m.byStatus.draft || 0}</div><div className="k">Draft</div></div>
-            <div className="pnl-card"><div className="v">{m.byStatus.review || 0}</div><div className="k">In review</div></div>
-            <div className="pnl-card"><div className="v">{m.byStatus.approved || 0}</div><div className="k">Approved</div></div>
           </div>
 
-          {(m.shieldFlagged.length > 0 || m.claimFail.length > 0) && (
-            <div className="pnl-issues">
-              {m.shieldFlagged.map((r) => (
-                <div className="pnl-issue" key={'s' + r.slug}>
-                  <div className="t"><span className="pill warn">name check</span> {r.title}</div>
-                  <div className="d">
-                    Matched: {(r.shield_hits || []).map((h) => `“${h.name}”`).filter((v, i, a) => a.indexOf(v) === i).join(', ')}
-                    {' — '}review whether this is a real supplier mention or a business named after its own category.
-                  </div>
-                </div>
-              ))}
-              {m.claimFail.map((r) => (
-                <div className="pnl-issue" key={'c' + r.slug}>
-                  <div className="t"><span className="pill bad">facts</span> {r.title}</div>
-                  <div className="d">{(r.claim_audit_issues || []).map((i) => i.problem).join('; ')}</div>
-                </div>
-              ))}
-            </div>
+          {admin && (
+            <Suspense fallback={null}><GateDetail total={m.rows.length} /></Suspense>
           )}
 
           <div className="pnl-cards" style={{ marginTop: 12 }}>
@@ -230,7 +215,7 @@ export default function Panel() {
           )}
         </section>
 
-        <div className="pnl-foot">Reads the pages table only. No changes are made from this screen.</div>
+        <div className="pnl-foot">{admin ? 'Reads the pages table only. No changes are made from this screen.' : 'This view is read-only and updates on its own as pages are written and approved.'}</div>
       </div>
     </div>
   );

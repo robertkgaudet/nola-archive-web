@@ -290,3 +290,69 @@ body[data-surface="preview"] {
   .pv-modal { padding: 30px 22px; }
   .pv-dek::first-letter { font-size: 2.6em; }
 }
+
+/* ---------- shared client nav (links, not buttons) ---------- */
+.pv-nav a {
+  text-decoration: none; font-family: var(--sans); font-size: 12px; font-weight: 500;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--slate);
+  position: relative; padding: 2px 0;
+}
+.pv-nav a::after {
+  content: ''; position: absolute; left: 0; right: 100%; bottom: -3px;
+  height: 1px; background: var(--brass); transition: right .3s ease;
+}
+.pv-nav a:hover { color: var(--ink); }
+.pv-nav a:hover::after, .pv-nav a.on::after { right: 0; }
+.pv-nav a.on { color: var(--ink); }
+
+/* ---------- landing: explainer ---------- */
+.pv-h2 {
+  font-family: var(--serif); font-weight: 400; font-size: clamp(30px, 4.2vw, 46px);
+  line-height: 1.08; letter-spacing: -0.015em; margin: 0 0 30px;
+}
+.pv-h3 { font-family: var(--serif); font-weight: 400; font-size: 25px; line-height: 1.2; margin: 0 0 14px; }
+
+.pv-explain { padding: 8px 0 0; }
+.pv-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 54px; }
+.pv-cols p { font-size: 17.5px; line-height: 1.72; color: var(--slate); margin: 0 0 20px; }
+.pv-cols p:last-child { margin-bottom: 0; }
+.pv-cols em { font-family: var(--serif); font-style: italic; color: var(--ink); font-size: 1.06em; }
+.pv-cols strong { color: var(--ink); font-weight: 600; }
+
+/* ---------- landing: the four beats ---------- */
+.pv-steps { padding: 8px 0 0; }
+.pv-step-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1px;
+  background: var(--hair); border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); }
+.pv-step { background: var(--paper); padding: 30px 26px 32px; }
+.pv-step-n { font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: .18em;
+  color: var(--brass); display: block; margin-bottom: 14px; }
+.pv-step h3 { font-family: var(--serif); font-weight: 400; font-size: 22px; line-height: 1.24; margin: 0 0 10px; }
+.pv-step p { font-size: 15.5px; line-height: 1.62; color: var(--slate); margin: 0; }
+.pv-step-foot { font-size: 17px; color: var(--slate); margin: 26px 0 0; max-width: 660px; }
+
+/* ---------- landing: entries ---------- */
+.pv-band-label { font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: .22em;
+  text-transform: uppercase; color: var(--brass); margin-bottom: 16px; }
+.pv-entry-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--hair);
+  border: 1px solid var(--hair); }
+.pv-entry { background: var(--paper); padding: 38px 34px 34px; text-decoration: none;
+  display: flex; flex-direction: column; gap: 12px; transition: background .25s ease; }
+.pv-entry:hover { background: var(--porcelain); }
+.pv-entry h3 { font-family: var(--serif); font-weight: 400; font-size: 30px; line-height: 1.14; margin: 0; }
+.pv-entry p { font-size: 16px; line-height: 1.62; color: var(--slate); margin: 0; }
+.pv-entry .pv-more { font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--brass); margin-top: auto; padding-top: 10px; }
+
+/* ---------- collection: sticky theme headers ---------- */
+.pv-theme-head {
+  position: sticky; top: 93px; z-index: 10;
+  background: var(--paper); padding: 16px 0 12px; margin-bottom: 0;
+  border-bottom: 1px solid var(--hair);
+}
+.pv-theme-blurb { padding-top: 22px; }
+
+@media (max-width: 860px) {
+  .pv-cols, .pv-entry-grid { grid-template-columns: 1fr; gap: 30px; }
+  .pv-entry-grid { gap: 1px; }
+  .pv-theme-head { top: 76px; }
+}
