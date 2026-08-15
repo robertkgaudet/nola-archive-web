@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { fetchAll, configError } from '../supabase.js';
 import { THEMES, themeFor } from '../themeMap.js';
 import { lazy, Suspense } from 'react';
+import { FleurDeLis, GasLamp, Streetcar } from '../preview/Icons.jsx';
 import './panel.css';
 
 const GateDetail = lazy(() => import('./GateDetail.jsx'));
@@ -102,7 +103,7 @@ export default function Panel({ mode = 'client' }) {
 
         {/* ---------- A. INVENTORY ---------- */}
         <section className="pnl-sec">
-          <div className="pnl-sec-h"><h2>Content inventory</h2><span className="tag">live</span></div>
+          <div className="pnl-sec-h"><span className="pnl-mark"><FleurDeLis /></span><h2>Content inventory</h2><span className="tag">live</span></div>
           <p className="pnl-note">
             Word counts and coverage across all pages — spot thin topics at a glance.
           </p>
@@ -161,7 +162,7 @@ export default function Panel({ mode = 'client' }) {
 
         {/* ---------- B. READINESS ---------- */}
         <section className="pnl-sec">
-          <div className="pnl-sec-h"><h2>Quality &amp; readiness</h2><span className="tag">live</span></div>
+          <div className="pnl-sec-h"><span className="pnl-mark"><GasLamp /></span><h2>Quality &amp; readiness</h2><span className="tag">live</span></div>
           <p className="pnl-note">
             {admin
               ? 'Gate results per page: name check and claim audit, with every failure named.'
@@ -191,7 +192,7 @@ export default function Panel({ mode = 'client' }) {
 
         {/* ---------- C. PUBLISHING ---------- */}
         <section className="pnl-sec">
-          <div className="pnl-sec-h"><h2>Publishing tracker</h2>
+          <div className="pnl-sec-h"><span className="pnl-mark"><Streetcar /></span><h2>Publishing tracker</h2>
             <span className="tag">{hasPublishCols ? 'live' : 'awaiting delivery'}</span></div>
           <p className="pnl-note">
             Tracks what is live, scheduled, or still in draft once pages start going to the site.

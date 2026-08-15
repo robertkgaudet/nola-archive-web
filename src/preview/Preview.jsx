@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase, fetchAll, configError } from '../supabase.js';
 import { THEMES, THEME_BLURB, themeFor } from '../themeMap.js';
 import { SiteHeader, SiteFooter, EndCta, IronRule, RFP_URL } from './Shell.jsx';
+import { ThemeIcon, FleurDeLis } from './Icons.jsx';
 import './preview.css';
 
 /**
@@ -182,7 +183,12 @@ function Article({ page, all, theme, onOpen, onBack, onRfp }) {
     <div className="pv-wrap">
       <article className="pv-article">
         <button className="pv-back" onClick={onBack}>← The collection</button>
-        {theme && <div className="pv-eyebrow">{theme}</div>}
+        {theme && (
+          <div className="pv-eyebrow-row">
+            <FleurDeLis className="pv-ico-sm" />
+            <div className="pv-eyebrow">{theme}</div>
+          </div>
+        )}
         <h1>{page.title}</h1>
         {page.direct_answer && <p className="pv-dek">{page.direct_answer}</p>}
 
@@ -327,6 +333,7 @@ export default function Preview() {
                 {ti > 0 && <IronRule />}
                 <section className="pv-theme reveal" id={theme.replace(/\W+/g, '-')}>
                   <div className="pv-theme-head">
+                    <span className="pv-theme-mark"><ThemeIcon theme={theme} /></span>
                     <h2>{theme}</h2>
                     <span className="pv-theme-n">{String(items.length).padStart(2, '0')} {items.length === 1 ? 'story' : 'stories'}</span>
                   </div>

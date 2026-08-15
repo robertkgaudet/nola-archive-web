@@ -9,8 +9,9 @@ body[data-surface="panel"] {
   --faint: #9aa0a8;
   --line: #e3e4e6;
   --line-2: #cdd0d4;
-  --ok: #1d7a4c;
-  --ok-bg: #e8f4ed;
+  --ok: #1e5945;        /* emerald — faith. affirmative states only */
+  --ok-bg: #e9f1ee;
+  --brass: #a67c34;     /* gold — power. section marks */
   --warn: #96650a;
   --warn-bg: #fbf1dc;
   --bad: #a32626;
@@ -90,3 +91,10 @@ table.pnl-t { width: 100%; border-collapse: collapse; background: var(--card);
 @media (max-width: 700px) {
   .pnl-bar { grid-template-columns: 120px 1fr 36px; }
 }
+
+
+/* section marks share the client line-icon language */
+.pnl-sec-h { align-items: center; }
+.pnl-mark { color: var(--brass); display: flex; align-items: center; }
+.pnl-mark svg { width: 18px; height: 18px; display: block; }
+.pnl-card.ok .k { color: var(--ok); }

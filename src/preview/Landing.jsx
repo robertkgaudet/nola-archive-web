@@ -1,11 +1,12 @@
 import { useEffect } from 'react';
 import { SiteHeader, SiteFooter, EndCta, IronRule } from './Shell.jsx';
+import { FleurDeLis, GasLamp, Streetcar } from './Icons.jsx';
 import './preview.css';
 
 const STEPS = [
   { n: '01', t: 'Someone asks a real question', d: 'A planner opens an AI assistant and types what they actually need — “where can we host a rooftop reception for 150 in New Orleans?”' },
-  { n: '02', t: 'The answer lives on your site', d: 'You have already published a proper answer to that exact question, with the real detail: capacities, group sizes, formats, timings.' },
-  { n: '03', t: 'You are the one recommended', d: 'The assistant answers using the clearest, most specific source it can find — and points the planner to you.' },
+  { n: '02', icon: <GasLamp />, t: 'The answer lives on your site', d: 'You have already published a proper answer to that exact question, with the real detail: capacities, group sizes, formats, timings.' },
+  { n: '03', icon: <Streetcar />, t: 'You are the one recommended', d: 'The assistant answers using the clearest, most specific source it can find — and points the planner to you.' },
   { n: '04', t: 'And the page invites them in', d: 'Every answer closes the same way: an invitation to request a proposal, so the interest turns into a conversation.' }
 ];
 
@@ -106,7 +107,10 @@ export default function Landing() {
           <div className="pv-step-grid">
             {STEPS.map((s) => (
               <div className="pv-step" key={s.n}>
-                <span className="pv-step-n">{s.n}</span>
+                <div className="pv-step-head">
+                  <span className="pv-step-n">{s.n}</span>
+                  {s.icon && <span className="pv-step-mark">{s.icon}</span>}
+                </div>
                 <h3>{s.t}</h3>
                 <p>{s.d}</p>
               </div>
@@ -128,6 +132,7 @@ export default function Landing() {
           <h2 className="pv-h2">This approach, live</h2>
           <div className="pv-entry-grid">
             <a className="pv-entry" href="/collection">
+              <span className="pv-entry-mark"><FleurDeLis /></span>
               <h3>The Answer Collection</h3>
               <p>
                 The library of answers to what planners actually ask about bringing a group to
@@ -137,6 +142,7 @@ export default function Landing() {
               <span className="pv-more">Open the collection →</span>
             </a>
             <a className="pv-entry" href="/panel">
+              <span className="pv-entry-mark"><GasLamp /></span>
               <h3>The Content Control Panel</h3>
               <p>
                 A live view of how much has been built, how deep it goes across each part of the

@@ -19,8 +19,10 @@ body[data-surface="preview"] {
   --slate: #56555e;
   --mute: #8b8992;
   --hair: #e6e3de;
-  --brass: #a67c34;
+  --brass: #a67c34;      /* gold — power. primary accent, unchanged */
   --brass-dk: #7c5a22;
+  --royal: #4b2e63;      /* purple — justice. the collection's marker only */
+  --emerald: #1e5945;    /* green — faith. affirmative states only */
 
   --serif: "Instrument Serif", "Iowan Old Style", Palatino, Georgia, serif;
   --sans: "Archivo", ui-sans-serif, "Segoe UI", Helvetica, Arial, sans-serif;
@@ -375,3 +377,33 @@ body[data-surface="preview"] {
   .pv-entry-grid { gap: 1px; }
   /* offset stays measured — no hardcoded mobile value */
 }
+
+
+/* ---------- line marks ----------
+   currentColor throughout, so a mark takes whatever accent its context sets.
+   Never decorative: one mark per context, with a fixed theme mapping. */
+.pv-ico { width: 26px; height: 26px; display: block; flex: 0 0 auto; }
+.pv-ico-sm { width: 20px; height: 20px; display: block; flex: 0 0 auto; }
+
+/* collection: purple is the marker colour here, and the only secondary used */
+.pv-theme-head { align-items: center; }
+.pv-theme-mark { color: var(--royal); display: flex; align-items: center; }
+.pv-theme-n { color: var(--royal); }
+
+/* article eyebrow keeps a quiet fleur mark in brass */
+.pv-eyebrow-row { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+.pv-eyebrow-row .pv-eyebrow { margin-bottom: 0; }
+.pv-eyebrow-row .pv-ico-sm { color: var(--brass); }
+
+/* landing beats: a 2px top rule is the only colour field permitted, and the
+   beat's mark inherits it */
+.pv-step { border-top: 2px solid var(--brass); }
+.pv-step:nth-child(2) { border-top-color: var(--royal); }
+.pv-step:nth-child(3) { border-top-color: var(--emerald); }
+.pv-step-mark { margin-bottom: 14px; color: var(--brass); }
+.pv-step:nth-child(2) .pv-step-mark { color: var(--royal); }
+.pv-step:nth-child(3) .pv-step-mark { color: var(--emerald); }
+.pv-step-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+
+/* entry panels: a single mark each, brass */
+.pv-entry-mark { color: var(--brass); margin-bottom: 4px; }
