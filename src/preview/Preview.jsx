@@ -27,18 +27,38 @@ function IronRule({ tight = false }) {
   );
 }
 
-/** Fade-up on entry; disabled outright under prefers-reduced-motion. */
+/**
+ * Fade-up on entry. Arms itself only when it can genuinely observe and reveal;
+ * otherwise the CSS leaves everything visible. `dep` must change whenever new
+ * .reveal nodes mount, or they are never observed.
+ */
 function useReveal(dep) {
   useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      document.querySelectorAll('.reveal').forEach((n) => n.classList.add('in'));
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const nodes = document.querySelectorAll('.reveal');
+    if (!nodes.length) return;
+
+    if (reduced || typeof IntersectionObserver === 'undefined') {
+      nodes.forEach((n) => n.classList.add('in'));
       return;
     }
+
+    document.body.dataset.reveal = 'armed';
     const io = new IntersectionObserver((entries) => {
       for (const e of entries) if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
     }, { rootMargin: '0px 0px -8% 0px' });
-    document.querySelectorAll('.reveal:not(.in)').forEach((n) => io.observe(n));
-    return () => io.disconnect();
+    nodes.forEach((n) => { if (!n.classList.contains('in')) io.observe(n); });
+
+    // Safety net: anything still hidden shortly after mount is revealed anyway,
+    // so a mis-set threshold or an offscreen quirk can never eat the page.
+    const t = setTimeout(() => {
+      document.querySelectorAll('.reveal:not(.in)').forEach((n) => {
+        const r = n.getBoundingClientRect();
+        if (r.top < window.innerHeight * 1.5) n.classList.add('in');
+      });
+    }, 600);
+
+    return () => { clearTimeout(t); io.disconnect(); };
   }, [dep]);
 }
 
@@ -256,7 +276,9 @@ export default function Preview() {
     })();
   }, []);
 
-  useReveal(open ? open.slug : 'index');
+  // keyed on the data too — the effect must re-run once pages arrive,
+  // otherwise the sections mount after it and are never observed
+  useReveal(open ? open.slug : `index:${pages ? pages.length : 0}`);
 
   const byTheme = useMemo(() => {
     const m = new Map(THEMES.map((t) => [t, []]));
