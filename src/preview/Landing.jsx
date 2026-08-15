@@ -25,10 +25,8 @@ export default function Landing() {
     }, { rootMargin: '0px 0px -8% 0px' });
     nodes.forEach((n) => io.observe(n));
     const t = setTimeout(() => {
-      document.querySelectorAll('.reveal:not(.in)').forEach((n) => {
-        if (n.getBoundingClientRect().top < window.innerHeight * 1.5) n.classList.add('in');
-      });
-    }, 600);
+      document.querySelectorAll('.reveal:not(.in)').forEach((n) => n.classList.add('in'));
+    }, 1500);
     return () => { clearTimeout(t); io.disconnect(); };
   }, []);
 

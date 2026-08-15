@@ -29,12 +29,12 @@ function useReveal(dep) {
 
     // Safety net: anything still hidden shortly after mount is revealed anyway,
     // so a mis-set threshold or an offscreen quirk can never eat the page.
+    // Backstop: whatever the observer has not reached by now is revealed
+    // unconditionally. On a phone the lower sections sit far below the fold,
+    // and content must never be left hidden by an animation.
     const t = setTimeout(() => {
-      document.querySelectorAll('.reveal:not(.in)').forEach((n) => {
-        const r = n.getBoundingClientRect();
-        if (r.top < window.innerHeight * 1.5) n.classList.add('in');
-      });
-    }, 600);
+      document.querySelectorAll('.reveal:not(.in)').forEach((n) => n.classList.add('in'));
+    }, 1500);
 
     return () => { clearTimeout(t); io.disconnect(); };
   }, [dep]);
