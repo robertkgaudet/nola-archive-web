@@ -1,0 +1,191 @@
+/* Client preview — editorial, warm, restrained. Palette taken from
+   noladmc.com: cream #eeeadd ground, near-black ink, muted brass accent. */
+
+body[data-surface="preview"] {
+  --cream: #eeeadd;
+  --cream-deep: #e5e0d0;
+  --ink: #23211d;
+  --ink-soft: #5d574c;
+  --ink-faint: #8b8477;
+  --rule: #d8d2c2;
+  --brass: #9a6b3f;
+  --white: #fdfcf9;
+
+  margin: 0;
+  background: var(--cream);
+  color: var(--ink);
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+  font-size: 17px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.pv { --sans: ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+.pv *, .pv *::before, .pv *::after { box-sizing: border-box; }
+.pv a { color: inherit; }
+
+.pv-wrap { max-width: 1120px; margin: 0 auto; padding: 0 28px; }
+
+/* ---------- masthead ---------- */
+.pv-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 20px; padding: 22px 0 18px; border-bottom: 1px solid var(--rule);
+}
+.pv-logo { height: 46px; width: auto; display: block; }
+.pv-nav { display: flex; gap: 22px; font-family: var(--sans); font-size: 12px;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); }
+.pv-nav button { background: none; border: 0; font: inherit; letter-spacing: inherit;
+  text-transform: inherit; color: inherit; cursor: pointer; padding: 0; }
+.pv-nav button:hover { color: var(--brass); }
+
+.pv-cta {
+  font-family: var(--sans); font-size: 12px; letter-spacing: .1em;
+  text-transform: uppercase; padding: 10px 18px; border: 1px solid var(--ink);
+  background: var(--ink); color: var(--cream); cursor: pointer; white-space: nowrap;
+}
+.pv-cta:hover { background: var(--brass); border-color: var(--brass); }
+.pv-cta.ghost { background: none; color: var(--ink); }
+.pv-cta.ghost:hover { background: var(--ink); color: var(--cream); }
+
+/* ---------- hero ---------- */
+.pv-hero { padding: 76px 0 20px; max-width: 830px; }
+.pv-kicker {
+  font-family: var(--sans); font-size: 11px; letter-spacing: .2em;
+  text-transform: uppercase; color: var(--brass); margin-bottom: 20px;
+}
+.pv-hero h1 {
+  font-size: clamp(38px, 6vw, 66px); line-height: 1.03; letter-spacing: -0.02em;
+  font-weight: 400; margin: 0 0 22px;
+}
+.pv-hero h1 em { font-style: italic; color: var(--brass); }
+.pv-lede { font-size: 20px; line-height: 1.55; color: var(--ink-soft); margin: 0; max-width: 660px; }
+
+/* the plain-language framing block */
+.pv-intro {
+  margin: 42px 0 8px; padding: 26px 30px; background: var(--white);
+  border-left: 3px solid var(--brass); max-width: 760px;
+}
+.pv-intro p { margin: 0 0 12px; font-size: 17px; line-height: 1.62; }
+.pv-intro p:last-child { margin-bottom: 0; }
+
+.pv-count {
+  font-family: var(--sans); font-size: 12px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--ink-faint);
+  padding: 54px 0 12px; border-bottom: 1px solid var(--rule);
+}
+
+/* ---------- themes ---------- */
+.pv-theme { padding: 52px 0 8px; }
+.pv-theme-head { border-bottom: 1px solid var(--rule); padding-bottom: 14px; margin-bottom: 26px; }
+.pv-theme h2 { font-size: 30px; font-weight: 400; letter-spacing: -0.01em; margin: 0 0 6px; }
+.pv-theme-blurb { font-size: 16px; color: var(--ink-soft); margin: 0; }
+
+.pv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 1px;
+  background: var(--rule); border: 1px solid var(--rule); }
+.pv-card {
+  background: var(--cream); padding: 26px 24px 24px; cursor: pointer;
+  display: flex; flex-direction: column; gap: 10px; text-align: left;
+  border: 0; font: inherit; color: inherit; transition: background .15s ease;
+}
+.pv-card:hover { background: var(--white); }
+.pv-card h3 { font-size: 20px; line-height: 1.3; font-weight: 400; margin: 0; letter-spacing: -0.01em; }
+.pv-card p { font-size: 15px; line-height: 1.5; color: var(--ink-soft); margin: 0; }
+.pv-card .pv-more {
+  font-family: var(--sans); font-size: 11px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--brass); margin-top: auto; padding-top: 8px;
+}
+
+/* ---------- article ---------- */
+.pv-article { max-width: 720px; margin: 0 auto; padding: 54px 0 90px; }
+.pv-back {
+  font-family: var(--sans); font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ink-soft); background: none; border: 0; cursor: pointer; padding: 0; margin-bottom: 34px;
+}
+.pv-back:hover { color: var(--brass); }
+.pv-article h1 { font-size: clamp(32px, 4.4vw, 46px); line-height: 1.12; font-weight: 400;
+  letter-spacing: -0.02em; margin: 0 0 26px; }
+.pv-answer {
+  font-size: 21px; line-height: 1.55; color: var(--ink); font-style: italic;
+  border-left: 3px solid var(--brass); padding: 4px 0 4px 24px; margin: 0 0 40px;
+}
+.pv-body h2 { font-size: 25px; font-weight: 400; letter-spacing: -0.01em; margin: 44px 0 14px; }
+.pv-body h3 { font-size: 20px; font-weight: 400; margin: 32px 0 10px; }
+.pv-body p { margin: 0 0 20px; }
+.pv-body ul { margin: 0 0 20px; padding-left: 22px; }
+.pv-body li { margin-bottom: 9px; }
+.pv-body strong { font-weight: 600; }
+
+.pv-faq { margin-top: 58px; border-top: 1px solid var(--rule); padding-top: 34px; }
+.pv-faq h2 { font-size: 25px; font-weight: 400; margin: 0 0 22px; }
+.pv-faq-item { border-bottom: 1px solid var(--rule); padding: 18px 0; }
+.pv-faq-q { font-size: 18px; margin-bottom: 8px; }
+.pv-faq-a { font-size: 16px; color: var(--ink-soft); margin: 0; }
+
+.pv-endcta {
+  margin-top: 58px; padding: 40px; background: var(--ink); color: var(--cream); text-align: center;
+}
+.pv-endcta p { font-size: 21px; margin: 0 0 22px; line-height: 1.4; }
+.pv-endcta .pv-cta { background: var(--cream); color: var(--ink); border-color: var(--cream); }
+.pv-endcta .pv-cta:hover { background: var(--brass); border-color: var(--brass); color: var(--white); }
+
+.pv-related { margin-top: 44px; }
+.pv-related-h { font-family: var(--sans); font-size: 11px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--ink-faint); margin-bottom: 12px; }
+.pv-related button { display: block; background: none; border: 0; padding: 6px 0; cursor: pointer;
+  font: inherit; font-size: 17px; color: var(--ink); text-align: left; border-bottom: 1px solid var(--rule); width: 100%; }
+.pv-related button:hover { color: var(--brass); }
+
+/* ---------- footer ---------- */
+.pv-foot { border-top: 1px solid var(--rule); margin-top: 70px; padding: 40px 0 60px;
+  font-family: var(--sans); font-size: 13px; color: var(--ink-faint);
+  display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+
+/* ---------- RFP modal ---------- */
+.pv-modal-bg {
+  position: fixed; inset: 0; background: rgba(35,33,29,.55); z-index: 50;
+  display: flex; align-items: flex-start; justify-content: center; padding: 40px 20px; overflow-y: auto;
+}
+.pv-modal {
+  background: var(--cream); max-width: 680px; width: 100%; padding: 40px;
+  border: 1px solid var(--rule); position: relative;
+}
+.pv-modal h2 { font-size: 30px; font-weight: 400; margin: 0 0 6px; letter-spacing: -0.01em; }
+.pv-modal .pv-sub { color: var(--ink-soft); margin: 0 0 8px; font-size: 16px; }
+.pv-preview-note {
+  font-family: var(--sans); font-size: 12.5px; color: var(--ink-soft);
+  background: var(--white); border-left: 3px solid var(--brass);
+  padding: 11px 14px; margin: 0 0 26px;
+}
+.pv-close { position: absolute; top: 16px; right: 18px; background: none; border: 0;
+  font-size: 26px; line-height: 1; cursor: pointer; color: var(--ink-faint); }
+.pv-close:hover { color: var(--ink); }
+
+.pv-field { margin-bottom: 18px; }
+.pv-field label {
+  display: block; font-family: var(--sans); font-size: 11px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--ink-soft); margin-bottom: 6px;
+}
+.pv-field input[type=text], .pv-field input[type=email], .pv-field input[type=tel],
+.pv-field input[type=date], .pv-field textarea, .pv-field select {
+  width: 100%; padding: 11px 13px; border: 1px solid var(--rule); background: var(--white);
+  font-family: var(--sans); font-size: 15px; color: var(--ink);
+}
+.pv-field textarea { min-height: 110px; resize: vertical; }
+.pv-two { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.pv-checks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 18px; }
+.pv-check { display: flex; align-items: center; gap: 8px; font-family: var(--sans); font-size: 14px;
+  color: var(--ink); text-transform: none; letter-spacing: 0; margin: 0; }
+.pv-file { font-family: var(--sans); font-size: 13px; color: var(--ink-faint);
+  border: 1px dashed var(--rule); padding: 16px; text-align: center; background: var(--white); }
+
+.pv-sent { text-align: center; padding: 26px 0; }
+.pv-sent-mark { font-size: 38px; color: var(--brass); margin-bottom: 12px; }
+.pv-sent h3 { font-size: 25px; font-weight: 400; margin: 0 0 10px; }
+.pv-sent p { color: var(--ink-soft); margin: 0 auto 8px; max-width: 420px; font-size: 16px; }
+
+@media (max-width: 720px) {
+  .pv-two, .pv-checks { grid-template-columns: 1fr; }
+  .pv-head { flex-wrap: wrap; }
+  .pv-hero { padding-top: 48px; }
+  .pv-modal { padding: 28px 22px; }
+}
