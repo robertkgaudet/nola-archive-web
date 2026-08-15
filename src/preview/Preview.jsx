@@ -254,6 +254,19 @@ export default function Preview() {
   // otherwise the sections mount after it and are never observed
   useReveal(open ? open.slug : `index:${pages ? pages.length : 0}`);
 
+  // Measure the real masthead so the sticky theme bar sits flush beneath it
+  // with no gap. Guessing the offset is what let rows scroll through.
+  useEffect(() => {
+    const set = () => {
+      const h = document.querySelector('.pv-head')?.getBoundingClientRect().height;
+      if (h) document.documentElement.style.setProperty('--mast', `${Math.round(h)}px`);
+    };
+    set();
+    window.addEventListener('resize', set);
+    const t = setTimeout(set, 400); // after webfonts settle
+    return () => { window.removeEventListener('resize', set); clearTimeout(t); };
+  }, [pages, open]);
+
   const byTheme = useMemo(() => {
     const m = new Map(THEMES.map((t) => [t, []]));
     for (const p of pages || []) m.get(themeFor(p.slug))?.push(p);

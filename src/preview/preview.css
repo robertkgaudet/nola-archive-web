@@ -343,16 +343,35 @@ body[data-surface="preview"] {
 .pv-entry .pv-more { font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: .16em;
   text-transform: uppercase; color: var(--brass); margin-top: auto; padding-top: 10px; }
 
-/* ---------- collection: sticky theme headers ---------- */
+/* ---------- collection: sticky theme headers ----------
+   A solid, full-bleed tinted bar. --mast is measured from the real masthead at
+   runtime (see Preview.jsx) rather than guessed, so there is never a gap for
+   rows to scroll through. The ::before spans 100vw so the tint runs edge to
+   edge while the label stays on the content grid. */
 .pv-theme-head {
-  position: sticky; top: 93px; z-index: 10;
-  background: var(--paper); padding: 16px 0 12px; margin-bottom: 0;
-  border-bottom: 1px solid var(--hair);
+  position: sticky;
+  top: var(--mast, 93px);
+  z-index: 12;
+  isolation: isolate;
+  padding: 20px 0 18px;
+  margin-bottom: 0;
+  background: transparent;
+  border-bottom: 0;
 }
-.pv-theme-blurb { padding-top: 22px; }
+.pv-theme-head::before {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  left: 50%; width: 100vw; transform: translateX(-50%);
+  background: var(--porcelain);
+  border-bottom: 1px solid var(--hair);
+  box-shadow: 0 8px 16px -12px rgba(20, 20, 26, .3);
+  z-index: -1;
+}
+.pv-theme-blurb { padding-top: 24px; }
 
 @media (max-width: 860px) {
   .pv-cols, .pv-entry-grid { grid-template-columns: 1fr; gap: 30px; }
   .pv-entry-grid { gap: 1px; }
-  .pv-theme-head { top: 76px; }
+  /* offset stays measured — no hardcoded mobile value */
 }
