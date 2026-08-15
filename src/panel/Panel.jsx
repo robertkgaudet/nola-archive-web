@@ -143,7 +143,7 @@ export default function Panel() {
             <tbody>
               {sorted.map((r) => (
                 <tr key={r.slug}>
-                  <td><a href={`/?p=${encodeURIComponent(r.slug)}`} target="_blank" rel="noreferrer">{r.title}</a></td>
+                  <td><a href={`/preview?p=${encodeURIComponent(r.slug)}`} target="_blank" rel="noreferrer">{r.title}</a></td>
                   <td style={{ color: 'var(--dim)' }}>{r.theme}</td>
                   <td className="num">{r.words}</td>
                   <td className="num">{r.faqCount}</td>
