@@ -15,9 +15,31 @@ import { createRoot } from 'react-dom/client';
 // present in any client chunk.
 const path = window.location.pathname.replace(/\/+$/, '') || '/';
 
+// The engine is served ONLY from the unguessable *.pages.dev host (and
+// localhost). On a memorable custom domain /content_admin would be a guessable
+// path, and the archive holds the full provider research. To lift this, delete
+// this guard — the routes below are unchanged.
+const host = window.location.hostname;
+const ENGINE_HOSTS = /(^localhost$|^127\.0\.0\.1$|\.pages\.dev$)/;
+const engineAllowed = ENGINE_HOSTS.test(host);
+
 async function boot() {
   const root = createRoot(document.getElementById('root'));
   let View, props = {};
+
+  if (path.startsWith('/content_admin') && !engineAllowed) {
+    document.body.dataset.surface = 'panel';
+    document.title = 'Not available';
+    root.render(
+      <div className="pnl"><div className="pnl-wrap" style={{ paddingTop: 80, maxWidth: 560 }}>
+        <h1 style={{ fontSize: 18, margin: '0 0 10px' }}>Not available on this domain</h1>
+        <p style={{ fontSize: 14, color: '#6b7078', lineHeight: 1.6 }}>
+          The content workbench is served only from its private address. Open it there instead.
+        </p>
+      </div></div>
+    );
+    return;
+  }
 
   if (path === '/collection') {
     document.body.dataset.surface = 'preview';
