@@ -9,6 +9,8 @@ import { createRoot } from 'react-dom/client';
 //   /collection           the answer collection, editorial reading view
 //   /panel                control panel, client framing
 //   /content_admin        the internal archive browser (Rob only, unlinked)
+//   /review               reviewer annotation surface (passphrase-gated)
+//   /review/queue         director moderation queue (second passphrase)
 //   /content_admin/panel  the control panel with all gate detail (Rob only)
 //
 // No client surface links to /content_admin, and the archive's code is not
@@ -41,7 +43,15 @@ async function boot() {
     return;
   }
 
-  if (path === '/collection') {
+  if (path === '/review') {
+    document.body.dataset.surface = 'review';
+    document.title = 'Review';
+    View = (await import('./review/Review.jsx')).default;
+  } else if (path === '/review/queue') {
+    document.body.dataset.surface = 'review';
+    document.title = 'Moderation queue';
+    View = (await import('./review/Queue.jsx')).default;
+  } else if (path === '/collection') {
     document.body.dataset.surface = 'preview';
     document.title = 'The Answer Collection — NOLA DMC';
     View = (await import('./preview/Preview.jsx')).default;
