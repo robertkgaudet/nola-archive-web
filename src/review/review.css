@@ -108,13 +108,18 @@ mark.rv-mark.multi { border-bottom-style: double; }
 .rv-q-tools { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 20px 0 16px; }
 .rv-q-tools select, .rv-q-tools input { font-size: 14px; padding: 8px 10px;
   border: 1px solid var(--hair); border-radius: 3px; background: var(--paper); min-height: 40px; }
-.rv-q-item { border: 1px solid var(--hair); border-radius: 5px; padding: 16px; margin-bottom: 12px; }
+/* One scale for every card in the queue:
+     title 17/1.35 · body and quote 14.5/1.6 · meta 12/1.4
+   Nothing in a card may set its own size outside these three. */
+.rv-q-item { border: 1px solid var(--hair); border-radius: 5px; padding: 16px; margin-bottom: 12px;
+  font-size: 14.5px; line-height: 1.6; }
 .rv-q-head { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; margin-bottom: 8px; }
-.rv-q-page { font-family: var(--serif); font-size: 19px; }
-.rv-q-meta { font-size: 12px; color: var(--mute); }
-.rv-q-quote { font-family: var(--serif); font-size: 15.5px; color: var(--slate);
+.rv-q-page { font-family: var(--serif); font-size: 17px; line-height: 1.35; }
+.rv-q-meta { font-size: 12px; line-height: 1.4; color: var(--mute); }
+.rv-q-quote { font-family: var(--serif); font-size: 14.5px; line-height: 1.6; color: var(--slate);
   border-left: 3px solid var(--brass); padding: 3px 0 3px 11px; margin: 8px 0; }
-.rv-q-body { font-size: 15px; line-height: 1.6; margin: 8px 0 12px; }
+.rv-q-body { font-size: 14.5px; line-height: 1.6; margin: 8px 0 12px; }
+.rv-q-item .rv-hint { font-size: 12px; line-height: 1.4; }
 .rv-q-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 .rv-edit { margin-top: 12px; border-top: 1px solid var(--hair); padding-top: 12px; }
@@ -126,8 +131,10 @@ mark.rv-mark.multi { border-bottom-style: double; }
 
 .rv-ver { border: 1px solid var(--hair); border-radius: 5px; padding: 12px 14px; margin-bottom: 10px;
   display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-.rv-ver .t { font-size: 13.5px; }
-.rv-ver .n { font-size: 12px; color: var(--mute); }
+.rv-ver { font-size: 14.5px; line-height: 1.6; }
+.rv-ver .t { font-family: var(--serif); font-size: 17px; line-height: 1.35; }
+.rv-ver .n { font-size: 12px; line-height: 1.4; color: var(--mute); }
+.rv-ver .by { font-size: 12px; color: var(--royal); font-weight: 600; }
 .rv-empty { color: var(--mute); padding: 40px 0; text-align: center; }
 
 @media (prefers-reduced-motion: reduce) { .rv * { transition: none !important; animation: none !important; } }
@@ -163,3 +170,23 @@ mark.rv-mark.pending.del { box-shadow: inset 0 -2px 0 var(--flagred); border-bot
 .rv-assign-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   border-bottom: 1px solid var(--hair); padding: 12px 0; }
 .rv-assign-row .t { font-family: var(--serif); font-size: 17px; flex: 1 1 260px; }
+
+/* ---------- saved-comment popup ---------- */
+.rv-view { position: absolute; z-index: 45; width: min(380px, 92vw); background: var(--paper);
+  border: 1px solid var(--hair); border-radius: 6px; box-shadow: 0 18px 44px rgba(20,20,26,.18);
+  padding: 14px; font-size: 14.5px; line-height: 1.6; }
+.rv-view .hd { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.rv-view .who { font-size: 12.5px; font-weight: 600; }
+.rv-view .when { font-size: 12px; color: var(--mute); }
+.rv-view .q { font-family: var(--serif); font-size: 14.5px; color: var(--slate);
+  border-left: 3px solid var(--brass); padding: 2px 0 2px 10px; margin: 6px 0 8px; }
+.rv-view .b { font-size: 14.5px; margin-bottom: 10px; }
+.rv-view textarea { width: 100%; min-height: 76px; padding: 9px 11px; border: 1px solid var(--hair);
+  font-family: var(--sans); font-size: 14.5px; resize: vertical; border-radius: 3px; }
+.rv-view textarea:focus { border-color: var(--brass); outline: none; }
+.rv-view .acts { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+.rv-view label { font-size: 13.5px; display: flex; align-items: center; gap: 7px; color: var(--flagred); }
+.rv-view label input { accent-color: var(--flagred); }
+.rv-view + .rv-view { margin-top: 8px; }
+.rv-view .sep { border-top: 1px solid var(--hair); margin: 12px 0 10px; }
+.rv-edited { font-size: 12px; color: var(--mute); font-style: italic; }

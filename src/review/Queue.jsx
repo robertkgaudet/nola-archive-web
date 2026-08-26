@@ -49,18 +49,27 @@ function ReviewGate({ onEnter }) {
 }
 
 function DirectorGate({ name, onUnlock }) {
-  const [pass, setPass] = useState(''); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
+  const [pass, setPass] = useState('');
+  const [dir, setDir] = useState(() => localStorage.getItem('rv_director_name') || name || '');
+  const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   return (
     <div className="rv"><div className="rv-gate">
       <h1>Editorial director</h1>
       <p>Accepting, editing and reverting is director-only. The passphrase is checked on the server.</p>
       <form onSubmit={async (e) => {
         e.preventDefault(); setBusy(true); setErr('');
-        try { await director({ action: 'verify', passphrase: pass, director_name: name }); onUnlock(pass); }
+        if (!dir.trim()) { setErr('Add your name or initials — every change is attributed.'); setBusy(false); return; }
+        try {
+          await director({ action: 'verify', passphrase: pass, director_name: dir.trim() });
+          localStorage.setItem('rv_director_name', dir.trim());
+          onUnlock(pass, dir.trim());
+        }
         catch (ex) { setErr(String(ex.message)); }
         setBusy(false);
       }}>
         <input type="password" placeholder="Director passphrase" value={pass} onChange={(e) => setPass(e.target.value)} autoFocus />
+        <input type="text" placeholder="Your name or initials" value={dir}
+          onChange={(e) => { setDir(e.target.value); setErr(''); }} />
         {err && <p className="rv-err">{err}</p>}
         <button className="rv-btn" style={{ width: '100%' }} disabled={busy} type="submit">{busy ? 'Checking…' : 'Unlock'}</button>
         <p className="rv-hint" style={{ marginTop: 14 }}>
@@ -76,6 +85,7 @@ export default function Queue() {
   const [ok, setOk] = useState(() => localStorage.getItem('rv_ok') === '1' && !!localStorage.getItem('rv_name'));
   const [name, setName] = useState(() => localStorage.getItem('rv_name') || '');
   const [pass, setPass] = useState(null);              // director passphrase, session only
+  const [dirName, setDirName] = useState(() => localStorage.getItem('rv_director_name') || '');
   const [pages, setPages] = useState(null);
   const [comments, setComments] = useState([]);
   const [versions, setVersions] = useState([]);
@@ -95,7 +105,7 @@ export default function Queue() {
       const [p, c, v] = await Promise.all([
         fetchAll('pages', 'id, slug, title, direct_answer, body_md, meta_description'),
         fetchAll('page_comments', 'id, slug, reviewer_name, selected_text, anchor, comment_body, flag_delete, status, created_at, resolved_at, resolved_by'),
-        fetchAll('page_versions', 'id, slug, note, created_at')
+        fetchAll('page_versions', 'id, slug, note, created_at, edited_by')
       ]);
       setPages(p); setComments(c); setVersions(v);
       // optional until migration 007 has been run
@@ -129,7 +139,7 @@ export default function Queue() {
   }, [comments, pageBySlug]);
 
   if (!ok) return <ReviewGate onEnter={(n) => { setName(n); setOk(true); }} />;
-  if (!pass) return <DirectorGate name={name} onUnlock={setPass} />;
+  if (!pass) return <DirectorGate name={name} onUnlock={(p, d) => { setPass(p); setDirName(d); }} />;
   if (err) return <div className="rv"><div className="rv-wrap" style={{ paddingTop: 70 }}>
     Cannot load: {err}<p className="rv-hint">If this mentions a missing table, migration 006 has not been run yet.</p></div></div>;
   if (!pages) return <div className="rv"><div className="rv-wrap" style={{ paddingTop: 70 }}>Loading…</div></div>;
@@ -164,7 +174,7 @@ export default function Queue() {
           <button className={`rv-link${tab === 'queue' ? ' on' : ''}`} style={{ background: 'none', border: 0, cursor: 'pointer' }} onClick={() => setTab('queue')}>Queue</button>
           <button className={`rv-link${tab === 'history' ? ' on' : ''}`} style={{ background: 'none', border: 0, cursor: 'pointer' }} onClick={() => setTab('history')}>History</button>
           <button className={`rv-link${tab === 'team' ? ' on' : ''}`} style={{ background: 'none', border: 0, cursor: 'pointer' }} onClick={() => setTab('team')}>Team</button>
-          <span className="rv-who">{name}</span>
+          <span className="rv-who">{dirName || name}</span>
         </div>
       </div>
 
@@ -211,7 +221,7 @@ export default function Queue() {
                   <div className="rv-q-actions">
                     <button className="rv-btn small" disabled={busy} onClick={() => openEditor(c)}>Accept + edit</button>
                     <button className="rv-btn ghost small" disabled={busy}
-                      onClick={() => act(() => director({ action: 'resolve', passphrase: pass, director_name: name, comment_id: c.id, status: 'ignored' }))}>
+                      onClick={() => act(() => director({ action: 'resolve', passphrase: pass, director_name: dirName, comment_id: c.id, status: 'ignored' }))}>
                       Ignore
                     </button>
                     <a className="rv-btn ghost small" href={`/review?p=${encodeURIComponent(c.slug)}`}
@@ -224,7 +234,7 @@ export default function Queue() {
                       {c.status} by {c.resolved_by || '—'}{c.resolved_at ? ` · ${new Date(c.resolved_at).toLocaleString()}` : ''}
                     </span>
                     <button className="rv-btn ghost small" disabled={busy}
-                      onClick={() => act(() => director({ action: 'resolve', passphrase: pass, director_name: name, comment_id: c.id, status: 'open' }))}>
+                      onClick={() => act(() => director({ action: 'resolve', passphrase: pass, director_name: dirName, comment_id: c.id, status: 'open' }))}>
                       Reopen
                     </button>
                   </div>
@@ -252,7 +262,7 @@ export default function Queue() {
                     <div className="rv-q-actions" style={{ marginTop: 10 }}>
                       <button className="rv-btn small" disabled={busy} onClick={() => act(async () => {
                         await director({
-                          action: 'edit', passphrase: pass, director_name: name,
+                          action: 'edit', passphrase: pass, director_name: dirName,
                           slug: c.slug, field: editing.field, value: editing.value, comment_id: c.id
                         });
                         setEditing(null);
@@ -292,7 +302,7 @@ export default function Queue() {
                     {t.name}
                     <button title={`Remove ${t.name}`} disabled={busy} onClick={() => {
                       if (!confirm(`Remove ${t.name} from the roster? Their assignments go too; their comments stay.`)) return;
-                      act(() => director({ action: 'team_remove', passphrase: pass, director_name: name, member_id: t.id }));
+                      act(() => director({ action: 'team_remove', passphrase: pass, director_name: dirName, member_id: t.id }));
                     }}>×</button>
                   </span>
                 ))}
@@ -303,11 +313,11 @@ export default function Queue() {
                   type="text" placeholder="Add a team member" value={newMember}
                   onChange={(e) => setNewMember(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && newMember.trim()) {
-                    act(async () => { await director({ action: 'team_add', passphrase: pass, director_name: name, name: newMember.trim() }); setNewMember(''); });
+                    act(async () => { await director({ action: 'team_add', passphrase: pass, director_name: dirName, name: newMember.trim() }); setNewMember(''); });
                   } }}
                 />
                 <button className="rv-btn small" disabled={busy || !newMember.trim()} onClick={() => {
-                  act(async () => { await director({ action: 'team_add', passphrase: pass, director_name: name, name: newMember.trim() }); setNewMember(''); });
+                  act(async () => { await director({ action: 'team_add', passphrase: pass, director_name: dirName, name: newMember.trim() }); setNewMember(''); });
                 }}>Add</button>
               </div>
 
@@ -337,7 +347,7 @@ export default function Queue() {
                           <button
                             style={{ background: 'none', border: 0, cursor: 'pointer', marginLeft: 6, color: 'inherit' }}
                             title="Unassign" disabled={busy}
-                            onClick={() => act(() => director({ action: 'unassign', passphrase: pass, director_name: name, slug: p.slug, member_id: a.team_member_id }))}
+                            onClick={() => act(() => director({ action: 'unassign', passphrase: pass, director_name: dirName, slug: p.slug, member_id: a.team_member_id }))}
                           >×</button>
                         </span>
                       ))}
@@ -345,7 +355,7 @@ export default function Queue() {
                     </span>
                     <select value="" disabled={busy} onChange={(e) => {
                       const id = e.target.value; if (!id) return;
-                      act(() => director({ action: 'assign', passphrase: pass, director_name: name, slug: p.slug, member_id: id }));
+                      act(() => director({ action: 'assign', passphrase: pass, director_name: dirName, slug: p.slug, member_id: id }));
                     }}>
                       <option value="">Assign…</option>
                       {team.filter((t) => !assignedIds.has(t.id)).map((t) => (
@@ -379,11 +389,13 @@ export default function Queue() {
               .map((v) => (
                 <div className="rv-ver" key={v.id}>
                   <span className="t">{pageBySlug[v.slug]?.title || v.slug}</span>
-                  <span className="n">{new Date(v.created_at).toLocaleString()} · {v.note}</span>
+                  <span className="n">{new Date(v.created_at).toLocaleString()}</span>
+                  <span className="by">{v.edited_by || '—'}</span>
+                  <span className="n">{v.note}</span>
                   <span className="rv-spacer" />
                   <button className="rv-btn ghost small" disabled={busy} onClick={() => {
                     if (!confirm('Restore this snapshot over the current page?')) return;
-                    act(() => director({ action: 'revert', passphrase: pass, director_name: name, version_id: v.id }));
+                    act(() => director({ action: 'revert', passphrase: pass, director_name: dirName, version_id: v.id }));
                   }}>Revert to this</button>
                 </div>
               ))}

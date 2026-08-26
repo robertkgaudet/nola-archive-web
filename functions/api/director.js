@@ -68,12 +68,30 @@ export async function onRequestPost(context) {
   try { payload = await request.json(); } catch { return json({ ok: false, error: 'Bad request' }, 400); }
 
   const { passphrase, action } = payload || {};
-  if (!safeEqual(passphrase, env.DIRECTOR_PASSPHRASE)) {
+
+  // Two tiers. Editing or deleting a comment is something any signed-in
+  // reviewer may do, so those actions accept the REVIEW passphrase — still
+  // checked here, server-side, so the write never rides the public anon key.
+  // Everything else (page edits, reverts, moderation, roster) stays
+  // director-only.
+  const REVIEWER_ACTIONS = new Set(['comment_edit', 'comment_delete']);
+  const isDirector = safeEqual(passphrase, env.DIRECTOR_PASSPHRASE);
+  const isReviewer = env.REVIEW_PASSPHRASE ? safeEqual(passphrase, env.REVIEW_PASSPHRASE) : false;
+
+  if (REVIEWER_ACTIONS.has(action)) {
+    if (!env.REVIEW_PASSPHRASE && !isDirector) {
+      return json({ ok: false, error: 'Server is not configured for reviewer actions. Set REVIEW_PASSPHRASE as a Pages secret.' }, 500);
+    }
+    if (!isReviewer && !isDirector) return json({ ok: false, error: 'Not authorised' }, 401);
+  } else if (!isDirector) {
     return json({ ok: false, error: 'Not authorised' }, 401);
   }
 
   const q = db(env);
-  const who = (payload.director_name || 'director').slice(0, 80);
+  // Every state-changing action records a name. Falls back only if a caller
+  // somehow omits one, so History can never show an anonymous change.
+  const who = String(payload.director_name || payload.actor_name || '').trim().slice(0, 80)
+    || (isDirector ? 'director' : 'reviewer');
 
   try {
     switch (action) {
@@ -113,6 +131,7 @@ export async function onRequestPost(context) {
             page_id: page.id,
             slug,
             snapshot: page,
+            edited_by: who,
             note: `before edit to ${field}${comment_id ? ` (comment ${String(comment_id).slice(0, 8)})` : ''} by ${who}`
           }
         });
@@ -149,7 +168,8 @@ export async function onRequestPost(context) {
             page_id: current.id,
             slug: version.slug,
             snapshot: current,
-            note: `before revert to ${new Date(version.created_at).toISOString()} by ${who}`
+            edited_by: who,
+            note: `before revert to ${new Date(version.created_at).toLocaleString('en-GB')} by ${who}`
           }
         });
 
@@ -205,6 +225,30 @@ export async function onRequestPost(context) {
         if (!slug || !member_id) return json({ ok: false, error: 'slug and member_id are required' }, 400);
         await q(`page_assignments?slug=eq.${encodeURIComponent(slug)}&team_member_id=eq.${encodeURIComponent(member_id)}`,
           { method: 'DELETE' });
+        return json({ ok: true });
+      }
+
+      // ---- any signed-in reviewer may amend or remove a comment ----
+      case 'comment_edit': {
+        const { comment_id } = payload;
+        if (!comment_id) return json({ ok: false, error: 'comment_id is required' }, 400);
+        const patch = { edited_by: who, edited_at: new Date().toISOString() };
+        if ('comment_body' in payload) {
+          const b = payload.comment_body;
+          patch.comment_body = b === null ? null : String(b).slice(0, 4000);
+        }
+        if ('flag_delete' in payload) patch.flag_delete = !!payload.flag_delete;
+        if (!('comment_body' in patch) && !('flag_delete' in patch)) {
+          return json({ ok: false, error: 'Nothing to change' }, 400);
+        }
+        await q(`page_comments?id=eq.${encodeURIComponent(comment_id)}`, { method: 'PATCH', body: patch });
+        return json({ ok: true });
+      }
+
+      case 'comment_delete': {
+        const { comment_id } = payload;
+        if (!comment_id) return json({ ok: false, error: 'comment_id is required' }, 400);
+        await q(`page_comments?id=eq.${encodeURIComponent(comment_id)}`, { method: 'DELETE' });
         return json({ ok: true });
       }
 

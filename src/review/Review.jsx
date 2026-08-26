@@ -6,6 +6,25 @@ import './review.css';
 
 const REVIEW_PASSPHRASE = import.meta.env.VITE_REVIEW_PASSPHRASE || '';
 
+/**
+ * Comment edits and deletes go through the edge function, never through a raw
+ * anon UPDATE or DELETE — granting those to anon would expose the whole table.
+ * The function checks the review passphrase server-side, so any signed-in
+ * reviewer may amend or remove any comment while the write itself stays off
+ * the public key.
+ */
+async function reviewAction(payload) {
+  const res = await fetch('/api/director', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...payload, passphrase: REVIEW_PASSPHRASE })
+  });
+  let j = null;
+  try { j = await res.json(); } catch { /* non-json */ }
+  if (!res.ok || !j?.ok) throw new Error(j?.error || `Request failed (${res.status})`);
+  return j;
+}
+
 /* ---------------- markdown → blocks ----------------
    The same narrow subset the generator emits. Each text-bearing block gets an
    index; that index is what an anchor remembers, and the block's plain text is
@@ -99,7 +118,11 @@ function Block({ block, field, idx, ranges, onOpen }) {
           (p.ids.length > 1 ? ' multi' : '') +
           (p.ids.includes('__pending__') ? ' pending' : '')
         }
-        onClick={(e) => { e.stopPropagation(); const real = p.ids.filter((x) => x !== '__pending__'); if (real.length) onOpen(real); }}
+        onClick={(e) => {
+          e.stopPropagation();
+          const real = p.ids.filter((x) => x !== '__pending__');
+          if (real.length) onOpen(real, e.currentTarget);
+        }}
         title={`${p.ids.length} comment${p.ids.length > 1 ? 's' : ''}`}
       >{p.text}</mark>
     ) : <span key={i}>{p.text}</span>
@@ -114,6 +137,98 @@ function Block({ block, field, idx, ranges, onOpen }) {
   return <p {...attrs}>{inner}</p>;
 }
 
+/**
+ * The attribution columns arrive with migration 008. Until it is run, asking
+ * for them fails the whole query (42703) and the page would show no comments
+ * at all, so fall back to the columns that have always existed.
+ */
+const COMMENT_COLS = 'id, slug, reviewer_name, selected_text, anchor, comment_body, flag_delete, status, created_at, edited_by, edited_at';
+const COMMENT_COLS_BASE = 'id, slug, reviewer_name, selected_text, anchor, comment_body, flag_delete, status, created_at';
+let commentCols = COMMENT_COLS;
+
+async function loadComments() {
+  try {
+    return await fetchAll('page_comments', commentCols);
+  } catch (e) {
+    if (commentCols === COMMENT_COLS_BASE) throw e;
+    commentCols = COMMENT_COLS_BASE;
+    return await fetchAll('page_comments', commentCols);
+  }
+}
+
+/* ---------------- saved-comment popup: view, edit, delete ---------------- */
+function CommentCard({ c, reviewer, onDone, onClose }) {
+  const [editing, setEditing] = useState(false);
+  const [body, setBody] = useState(c.comment_body || '');
+  const [flag, setFlag] = useState(!!c.flag_delete);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  async function run(fn) {
+    setBusy(true); setErr('');
+    try { await fn(); await onDone(); }
+    catch (e) { setErr(String(e.message)); }
+    setBusy(false);
+  }
+
+  return (
+    <>
+      <div className="hd">
+        <span className="who">{c.reviewer_name}</span>
+        <span className="when">{new Date(c.created_at).toLocaleString()}</span>
+        {c.flag_delete && <span className="rv-tag del">delete</span>}
+        {c.status === 'accepted' && <span className="rv-tag acc">accepted</span>}
+        {c.status === 'ignored' && <span className="rv-tag ign">ignored</span>}
+      </div>
+      <div className="q">“{c.selected_text}”</div>
+
+      {!editing && (
+        <>
+          {c.comment_body ? <div className="b">{c.comment_body}</div>
+            : <div className="b" style={{ color: 'var(--mute)' }}>No comment — flagged only.</div>}
+          {c.edited_by && (
+            <div className="rv-edited">
+              edited by {c.edited_by}{c.edited_at ? ` · ${new Date(c.edited_at).toLocaleString()}` : ''}
+            </div>
+          )}
+          {err && <p className="rv-err" style={{ margin: '8px 0 0' }}>{err}</p>}
+          <div className="acts">
+            <button className="rv-btn ghost small" onClick={() => setEditing(true)} disabled={busy}>Edit</button>
+            <button className="rv-btn danger small" disabled={busy} onClick={() => {
+              if (!confirm('Delete this comment? The highlight goes with it.')) return;
+              run(() => reviewAction({ action: 'comment_delete', actor_name: reviewer, comment_id: c.id }));
+            }}>Delete</button>
+            <span className="rv-spacer" />
+            <button className="rv-btn ghost small" onClick={onClose} disabled={busy}>Close</button>
+          </div>
+        </>
+      )}
+
+      {editing && (
+        <>
+          <textarea value={body} onChange={(e) => setBody(e.target.value)} autoFocus
+            placeholder="What needs changing?" />
+          {err && <p className="rv-err" style={{ margin: '8px 0 0' }}>{err}</p>}
+          <div className="acts">
+            <label><input type="checkbox" checked={flag} onChange={(e) => setFlag(e.target.checked)} /> Mark for deletion</label>
+            <span className="rv-spacer" />
+            <button className="rv-btn ghost small" onClick={() => {
+              setEditing(false); setBody(c.comment_body || ''); setFlag(!!c.flag_delete); setErr('');
+            }} disabled={busy}>Cancel</button>
+            <button className="rv-btn small" disabled={busy || (!body.trim() && !flag)} onClick={() => run(async () => {
+              await reviewAction({
+                action: 'comment_edit', actor_name: reviewer, comment_id: c.id,
+                comment_body: body.trim() || null, flag_delete: flag
+              });
+              setEditing(false);
+            })}>{busy ? 'Saving…' : 'Save'}</button>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
 /* ---------------- article in review mode ---------------- */
 function Article({ page, comments, reviewer, onSaved, onBack }) {
   const [sel, setSel] = useState(null);      // { field, idx, start, end, quote, x, y }
@@ -121,6 +236,7 @@ function Article({ page, comments, reviewer, onSaved, onBack }) {
   const [flag, setFlag] = useState(false);
   const [busy, setBusy] = useState(false);
   const [active, setActive] = useState([]);  // comment ids opened from a highlight
+  const [viewing, setViewing] = useState(null); // { ids, x, y } — the view/edit popup
   const wrapRef = useRef(null);
 
   const fields = useMemo(() => ({
@@ -154,9 +270,21 @@ function Article({ page, comments, reviewer, onSaved, onBack }) {
       : ranges
   ), [ranges, sel, flag]);
 
+  const openComments = useCallback((ids, el) => {
+    setActive(ids);
+    const host = wrapRef.current?.getBoundingClientRect();
+    if (el && host) {
+      const r = el.getBoundingClientRect();
+      setViewing({ ids, x: Math.max(0, r.left - host.left), y: r.bottom - host.top + 8 });
+    } else {
+      setViewing({ ids, x: 0, y: 0, inline: true });
+    }
+  }, []);
+
   const onMouseUp = useCallback(() => {
     const s = window.getSelection();
     if (!s || s.isCollapsed || !s.rangeCount) { setSel(null); return; }
+    setViewing(null);
     const range = s.getRangeAt(0);
     const el = (range.startContainer.nodeType === 1 ? range.startContainer : range.startContainer.parentElement)
       ?.closest('[data-block]');
@@ -216,7 +344,7 @@ function Article({ page, comments, reviewer, onSaved, onBack }) {
             <div className="rv-field-label">Direct answer</div>
             <div className="rv-dek">
               {fields.direct_answer.map((b, i) => (
-                <Block key={i} block={b} field="direct_answer" idx={i} ranges={paintedRanges} onOpen={setActive} />
+                <Block key={i} block={b} field="direct_answer" idx={i} ranges={paintedRanges} onOpen={openComments} />
               ))}
             </div>
           </>
@@ -225,7 +353,7 @@ function Article({ page, comments, reviewer, onSaved, onBack }) {
         <div className="rv-field-label">Body</div>
         <div className="rv-body">
           {fields.body_md.map((b, i) => (
-            <Block key={i} block={b} field="body_md" idx={i} ranges={paintedRanges} onOpen={setActive} />
+            <Block key={i} block={b} field="body_md" idx={i} ranges={paintedRanges} onOpen={openComments} />
           ))}
         </div>
 
@@ -249,6 +377,22 @@ function Article({ page, comments, reviewer, onSaved, onBack }) {
           </div>
         )}
 
+        {viewing && !viewing.inline && (
+          <div className="rv-view" style={{ left: viewing.x, top: viewing.y }} onMouseUp={(e) => e.stopPropagation()}>
+            {viewing.ids.map((id, i) => byId[id] ? (
+              <div key={id}>
+                {i > 0 && <div className="sep" />}
+                <CommentCard
+                  c={byId[id]}
+                  reviewer={reviewer}
+                  onDone={async () => { await onSaved(); setViewing(null); setActive([]); }}
+                  onClose={() => { setViewing(null); setActive([]); }}
+                />
+              </div>
+            ) : null)}
+          </div>
+        )}
+
         <div className="rv-field-label" style={{ marginTop: 46 }}>
           Comments ({comments.length}){active.length > 0 && (
             <button className="rv-btn ghost small" style={{ marginLeft: 10 }} onClick={() => setActive([])}>show all</button>
@@ -257,7 +401,11 @@ function Article({ page, comments, reviewer, onSaved, onBack }) {
         <div className="rv-notes">
           {shown.length === 0 && <p className="rv-empty">No comments yet. Select any text above to leave one.</p>}
           {shown.map((c) => (
-            <div key={c.id} className={`rv-note${c.flag_delete ? ' del' : ''}${active.includes(c.id) ? ' active' : ''}`}>
+            <div key={c.id}
+              className={`rv-note${c.flag_delete ? ' del' : ''}${active.includes(c.id) ? ' active' : ''}`}
+              role="button" tabIndex={0} style={{ cursor: 'pointer' }}
+              onClick={() => setViewing({ ids: [c.id], inline: true })}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setViewing({ ids: [c.id], inline: true }); } }}>
               <span className="who">{c.reviewer_name}</span>
               <span className="when">{new Date(c.created_at).toLocaleString()}</span>
               {c.flag_delete && <span className="rv-tag del">delete</span>}
@@ -266,6 +414,18 @@ function Article({ page, comments, reviewer, onSaved, onBack }) {
               {unanchored.some((u) => u.id === c.id) && <span className="rv-tag un">text moved</span>}
               <div className="q">“{c.selected_text}”</div>
               {c.comment_body && <div className="b">{c.comment_body}</div>}
+              {c.edited_by && <div className="rv-edited">edited by {c.edited_by}</div>}
+              {viewing?.inline && viewing.ids.includes(c.id) && (
+                <div className="rv-view" style={{ position: 'static', width: 'auto', marginTop: 10, boxShadow: 'none' }}
+                  onClick={(e) => e.stopPropagation()}>
+                  <CommentCard
+                    c={c}
+                    reviewer={reviewer}
+                    onDone={async () => { await onSaved(); setViewing(null); }}
+                    onClose={() => setViewing(null)}
+                  />
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -290,7 +450,7 @@ export default function Review() {
     try {
       const [p, c] = await Promise.all([
         fetchAll('pages', 'id, slug, title, direct_answer, body_md'),
-        fetchAll('page_comments', 'id, slug, reviewer_name, selected_text, anchor, comment_body, flag_delete, status, created_at')
+        loadComments()
       ]);
       setPages(p.sort((a, b) => a.title.localeCompare(b.title)));
       setComments(c);
