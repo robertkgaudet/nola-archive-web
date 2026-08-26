@@ -162,6 +162,52 @@ export async function onRequestPost(context) {
         return json({ ok: true, restored: Object.keys(restore).filter((k) => k !== 'updated_at') });
       }
 
+      // ---- roster: add / remove a team member ----
+      case 'team_add': {
+        const name = String(payload.name || '').trim();
+        if (!name) return json({ ok: false, error: 'Name is required' }, 400);
+        if (name.length > 80) return json({ ok: false, error: 'Name is too long' }, 400);
+        const existing = await q(`review_team?name=eq.${encodeURIComponent(name)}&select=id`);
+        if (existing && existing.length) return json({ ok: false, error: 'That name is already on the roster' }, 409);
+        const rows = await q('review_team', { method: 'POST', body: { name }, prefer: 'return=representation' });
+        return json({ ok: true, member: rows && rows[0] });
+      }
+
+      case 'team_remove': {
+        const { member_id } = payload;
+        if (!member_id) return json({ ok: false, error: 'member_id is required' }, 400);
+        // assignments cascade with the member
+        await q(`review_team?id=eq.${encodeURIComponent(member_id)}`, { method: 'DELETE' });
+        return json({ ok: true });
+      }
+
+      // ---- assignment: many people per article, many articles per person ----
+      case 'assign': {
+        const { slug, member_id } = payload;
+        if (!slug || !member_id) return json({ ok: false, error: 'slug and member_id are required' }, 400);
+        const rows = await q(`pages?slug=eq.${encodeURIComponent(slug)}&select=id`);
+        const page = rows && rows[0];
+        if (!page) return json({ ok: false, error: 'Page not found' }, 404);
+        try {
+          await q('page_assignments', {
+            method: 'POST',
+            body: { page_id: page.id, slug, team_member_id: member_id, assigned_by: who }
+          });
+        } catch (e) {
+          // the unique constraint means already-assigned is a no-op, not a failure
+          if (!/duplicate key|page_assignments_unique|23505/i.test(String(e.message))) throw e;
+        }
+        return json({ ok: true });
+      }
+
+      case 'unassign': {
+        const { slug, member_id } = payload;
+        if (!slug || !member_id) return json({ ok: false, error: 'slug and member_id are required' }, 400);
+        await q(`page_assignments?slug=eq.${encodeURIComponent(slug)}&team_member_id=eq.${encodeURIComponent(member_id)}`,
+          { method: 'DELETE' });
+        return json({ ok: true });
+      }
+
       default:
         return json({ ok: false, error: 'Unknown action' }, 400);
     }

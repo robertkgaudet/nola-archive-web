@@ -35,6 +35,16 @@ function Gate({ onEnter }) {
   const [pass, setPass] = useState('');
   const [name, setName] = useState(localStorage.getItem('rv_name') || '');
   const [err, setErr] = useState('');
+  const [team, setTeam] = useState(null);   // null = still loading
+
+  // The roster is readable by anon so the picker can be populated before the
+  // passphrase is entered. Names only — nothing sensitive.
+  useEffect(() => {
+    (async () => {
+      try { setTeam(await fetchAll('review_team', 'id, name')); }
+      catch { setTeam([]); }   // table missing or unreadable: fall back to free text
+    })();
+  }, []);
 
   const submit = (e) => {
     e.preventDefault();
@@ -53,10 +63,22 @@ function Gate({ onEnter }) {
       <form onSubmit={submit}>
         <input type="password" placeholder="Passphrase" value={pass}
           onChange={(e) => { setPass(e.target.value); setErr(''); }} autoFocus />
-        <input type="text" placeholder="Your name" value={name}
-          onChange={(e) => { setName(e.target.value); setErr(''); }} />
+        {team && team.length > 0 ? (
+          <select value={name} onChange={(e) => { setName(e.target.value); setErr(''); }} className="rv-select">
+            <option value="">Choose your name…</option>
+            {team.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
+          </select>
+        ) : (
+          <input type="text" placeholder="Your name" value={name}
+            onChange={(e) => { setName(e.target.value); setErr(''); }} />
+        )}
         {err && <p className="rv-err">{err}</p>}
         <button className="rv-btn" type="submit" style={{ width: '100%' }}>Enter</button>
+        {team && team.length === 0 && (
+          <p className="rv-hint" style={{ marginTop: 12 }}>
+            No team roster yet — type your name. The director can add people from the queue.
+          </p>
+        )}
       </form>
     </div></div>
   );
@@ -71,8 +93,13 @@ function Block({ block, field, idx, ranges, onOpen }) {
     p.ids.length ? (
       <mark
         key={i}
-        className={`rv-mark${marks.some((m) => p.ids.includes(m.id) && m.flag_delete) ? ' del' : ''}${p.ids.length > 1 ? ' multi' : ''}`}
-        onClick={(e) => { e.stopPropagation(); onOpen(p.ids); }}
+        className={
+          'rv-mark' +
+          (marks.some((m) => p.ids.includes(m.id) && m.flag_delete) ? ' del' : '') +
+          (p.ids.length > 1 ? ' multi' : '') +
+          (p.ids.includes('__pending__') ? ' pending' : '')
+        }
+        onClick={(e) => { e.stopPropagation(); const real = p.ids.filter((x) => x !== '__pending__'); if (real.length) onOpen(real); }}
         title={`${p.ids.length} comment${p.ids.length > 1 ? 's' : ''}`}
       >{p.text}</mark>
     ) : <span key={i}>{p.text}</span>
@@ -116,6 +143,17 @@ function Article({ page, comments, reviewer, onSaved, onBack }) {
 
   const byId = useMemo(() => Object.fromEntries(comments.map((c) => [c.id, c])), [comments]);
 
+  // While the popover is open the browser drops its own selection paint as soon
+  // as focus moves to the textarea. Render the pending range as a real mark so
+  // the reviewer keeps seeing exactly what they are annotating until they save
+  // or cancel. It turns red the moment "mark for deletion" is ticked.
+  const PENDING = '__pending__';
+  const paintedRanges = useMemo(() => (
+    sel
+      ? [...ranges, { id: PENDING, field: sel.field, paraIndex: sel.idx, start: sel.start, end: sel.end, flag_delete: flag, pending: true }]
+      : ranges
+  ), [ranges, sel, flag]);
+
   const onMouseUp = useCallback(() => {
     const s = window.getSelection();
     if (!s || s.isCollapsed || !s.rangeCount) { setSel(null); return; }
@@ -144,6 +182,8 @@ function Article({ page, comments, reviewer, onSaved, onBack }) {
       y: rect.bottom - host.top + 10
     });
     setBody(''); setFlag(false);
+    // let the mouseup finish, then clear the native selection — our mark has it
+    setTimeout(() => window.getSelection()?.removeAllRanges(), 0);
   }, []);
 
   async function save() {
@@ -176,7 +216,7 @@ function Article({ page, comments, reviewer, onSaved, onBack }) {
             <div className="rv-field-label">Direct answer</div>
             <div className="rv-dek">
               {fields.direct_answer.map((b, i) => (
-                <Block key={i} block={b} field="direct_answer" idx={i} ranges={ranges} onOpen={setActive} />
+                <Block key={i} block={b} field="direct_answer" idx={i} ranges={paintedRanges} onOpen={setActive} />
               ))}
             </div>
           </>
@@ -185,7 +225,7 @@ function Article({ page, comments, reviewer, onSaved, onBack }) {
         <div className="rv-field-label">Body</div>
         <div className="rv-body">
           {fields.body_md.map((b, i) => (
-            <Block key={i} block={b} field="body_md" idx={i} ranges={ranges} onOpen={setActive} />
+            <Block key={i} block={b} field="body_md" idx={i} ranges={paintedRanges} onOpen={setActive} />
           ))}
         </div>
 
@@ -240,6 +280,9 @@ export default function Review() {
   const [reviewer, setReviewer] = useState(() => localStorage.getItem('rv_name') || '');
   const [pages, setPages] = useState(null);
   const [comments, setComments] = useState([]);
+  const [team, setTeam] = useState([]);
+  const [assignments, setAssignments] = useState([]);
+  const [scope, setScope] = useState('all');   // all | me | a roster name
   const [err, setErr] = useState(configError);
   const [open, setOpen] = useState(() => new URLSearchParams(window.location.search).get('p'));
 
@@ -251,6 +294,14 @@ export default function Review() {
       ]);
       setPages(p.sort((a, b) => a.title.localeCompare(b.title)));
       setComments(c);
+      // roster and assignments are optional — absent before migration 007
+      try {
+        const [t, a] = await Promise.all([
+          fetchAll('review_team', 'id, name'),
+          fetchAll('page_assignments', 'id, slug, team_member_id')
+        ]);
+        setTeam(t); setAssignments(a);
+      } catch { setTeam([]); setAssignments([]); }
     } catch (e) { setErr(e.message); }
   }, []);
 
@@ -264,6 +315,19 @@ export default function Review() {
   const byPage = {};
   for (const c of comments) (byPage[c.slug] ||= []).push(c);
   const current = open ? pages.find((p) => p.slug === open) : null;
+
+  const nameOf = Object.fromEntries(team.map((t) => [t.id, t.name]));
+  const assignedTo = {};   // slug -> [names]
+  for (const a of assignments) {
+    const n = nameOf[a.team_member_id];
+    if (n) (assignedTo[a.slug] ||= []).push(n);
+  }
+  // Filtering is a convenience only — every page stays openable by anyone.
+  const inScope = (slug) => {
+    if (scope === 'all') return true;
+    const names = assignedTo[slug] || [];
+    return names.includes(scope === 'me' ? reviewer : scope);
+  };
 
   return (
     <div className="rv">
@@ -291,11 +355,26 @@ export default function Review() {
         />
       ) : (
         <div className="rv-wrap">
-          <p className="rv-hint" style={{ margin: '22px 0 0' }}>
+          <div className="rv-q-tools" style={{ marginBottom: 4 }}>
+            <select value={scope} onChange={(e) => setScope(e.target.value)}>
+              <option value="all">All articles</option>
+              <option value="me">Assigned to me</option>
+              {team.filter((t) => t.name !== reviewer).map((t) => (
+                <option key={t.id} value={t.name}>Assigned to {t.name}</option>
+              ))}
+            </select>
+            <span className="rv-q-meta">
+              {scope === 'all'
+                ? `${pages.length} articles`
+                : `${pages.filter((p) => inScope(p.slug)).length} of ${pages.length} articles`}
+            </span>
+          </div>
+          <p className="rv-hint" style={{ margin: '0 0 6px' }}>
             Open a page, then select any words to leave a comment or mark them for deletion.
+            Assignments are a guide — anyone can read and comment on anything.
           </p>
           {THEMES.map((theme) => {
-            const items = pages.filter((p) => themeFor(p.slug) === theme);
+            const items = pages.filter((p) => themeFor(p.slug) === theme).filter((p) => inScope(p.slug));
             if (!items.length) return null;
             return (
               <section key={theme} style={{ marginTop: 34 }}>
@@ -305,7 +384,16 @@ export default function Review() {
                     const n = (byPage[p.slug] || []).filter((c) => c.status === 'open').length;
                     return (
                       <button className="rv-row" key={p.slug} onClick={() => setOpen(p.slug)}>
-                        <h3>{p.title}</h3>
+                        <span>
+                          <h3>{p.title}</h3>
+                          {(assignedTo[p.slug] || []).length > 0 && (
+                            <span className="rv-chips">
+                              {(assignedTo[p.slug] || []).map((nm) => (
+                                <span className={`rv-chip${nm === reviewer ? ' me' : ''}`} key={nm}>{nm}</span>
+                              ))}
+                            </span>
+                          )}
+                        </span>
                         <span className="rv-theme">{theme}</span>
                         <span className={`rv-count${n ? '' : ' zero'}`}>{n} open</span>
                       </button>

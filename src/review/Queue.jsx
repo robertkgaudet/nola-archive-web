@@ -79,6 +79,10 @@ export default function Queue() {
   const [pages, setPages] = useState(null);
   const [comments, setComments] = useState([]);
   const [versions, setVersions] = useState([]);
+  const [team, setTeam] = useState([]);
+  const [assignments, setAssignments] = useState([]);
+  const [newMember, setNewMember] = useState('');
+  const [assignFilter, setAssignFilter] = useState('');
   const [err, setErr] = useState(configError);
   const [filterPage, setFilterPage] = useState('all');
   const [filterStatus, setFilterStatus] = useState('open');
@@ -94,6 +98,14 @@ export default function Queue() {
         fetchAll('page_versions', 'id, slug, note, created_at')
       ]);
       setPages(p); setComments(c); setVersions(v);
+      // optional until migration 007 has been run
+      try {
+        const [t, a] = await Promise.all([
+          fetchAll('review_team', 'id, name, created_at'),
+          fetchAll('page_assignments', 'id, slug, team_member_id, assigned_by, assigned_at')
+        ]);
+        setTeam(t.sort((x, y) => x.name.localeCompare(y.name))); setAssignments(a);
+      } catch { setTeam([]); setAssignments([]); }
     } catch (e) { setErr(e.message); }
   }, []);
 
@@ -151,6 +163,7 @@ export default function Queue() {
           <a className="rv-link" href="/review">Pages</a>
           <button className={`rv-link${tab === 'queue' ? ' on' : ''}`} style={{ background: 'none', border: 0, cursor: 'pointer' }} onClick={() => setTab('queue')}>Queue</button>
           <button className={`rv-link${tab === 'history' ? ' on' : ''}`} style={{ background: 'none', border: 0, cursor: 'pointer' }} onClick={() => setTab('history')}>History</button>
+          <button className={`rv-link${tab === 'team' ? ' on' : ''}`} style={{ background: 'none', border: 0, cursor: 'pointer' }} onClick={() => setTab('team')}>Team</button>
           <span className="rv-who">{name}</span>
         </div>
       </div>
@@ -257,6 +270,95 @@ export default function Queue() {
             ))}
           </>
         )}
+
+        {tab === 'team' && (() => {
+          const nameOf = Object.fromEntries(team.map((t) => [t.id, t.name]));
+          const bySlug = {};
+          for (const a of assignments) (bySlug[a.slug] ||= []).push(a);
+          const visible = pages
+            .filter((p) => (assignFilter ? p.title.toLowerCase().includes(assignFilter.toLowerCase()) : true))
+            .sort((a, b) => a.title.localeCompare(b.title));
+
+          return (
+            <>
+              <div className="rv-field-label" style={{ marginTop: 22 }}>Team</div>
+              <p className="rv-hint">
+                Reviewers pick their name from this roster when they sign in. Removing someone also
+                removes their assignments.
+              </p>
+              <div className="rv-team">
+                {team.map((t) => (
+                  <span className="rv-member" key={t.id}>
+                    {t.name}
+                    <button title={`Remove ${t.name}`} disabled={busy} onClick={() => {
+                      if (!confirm(`Remove ${t.name} from the roster? Their assignments go too; their comments stay.`)) return;
+                      act(() => director({ action: 'team_remove', passphrase: pass, director_name: name, member_id: t.id }));
+                    }}>×</button>
+                  </span>
+                ))}
+                {team.length === 0 && <span className="rv-q-meta">Nobody on the roster yet.</span>}
+              </div>
+              <div className="rv-q-tools" style={{ margin: '0 0 26px' }}>
+                <input
+                  type="text" placeholder="Add a team member" value={newMember}
+                  onChange={(e) => setNewMember(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && newMember.trim()) {
+                    act(async () => { await director({ action: 'team_add', passphrase: pass, director_name: name, name: newMember.trim() }); setNewMember(''); });
+                  } }}
+                />
+                <button className="rv-btn small" disabled={busy || !newMember.trim()} onClick={() => {
+                  act(async () => { await director({ action: 'team_add', passphrase: pass, director_name: name, name: newMember.trim() }); setNewMember(''); });
+                }}>Add</button>
+              </div>
+
+              <div className="rv-field-label">Assignments</div>
+              <p className="rv-hint">
+                Assign as many people to an article as you like. Assignment guides the reviewer list —
+                it does not stop anyone reading or commenting on anything.
+              </p>
+              <div className="rv-q-tools" style={{ margin: '0 0 8px' }}>
+                <input type="text" placeholder="Filter articles" value={assignFilter}
+                  onChange={(e) => setAssignFilter(e.target.value)} />
+                <span className="rv-q-meta">{visible.length} of {pages.length} articles · {assignments.length} assignments</span>
+              </div>
+
+              {team.length === 0 && <p className="rv-empty">Add someone to the roster first.</p>}
+
+              {team.length > 0 && visible.map((p) => {
+                const mine = (bySlug[p.slug] || []);
+                const assignedIds = new Set(mine.map((a) => a.team_member_id));
+                return (
+                  <div className="rv-assign-row" key={p.slug}>
+                    <span className="t">{p.title}</span>
+                    <span className="rv-chips">
+                      {mine.map((a) => (
+                        <span className="rv-chip" key={a.id}>
+                          {nameOf[a.team_member_id] || 'unknown'}
+                          <button
+                            style={{ background: 'none', border: 0, cursor: 'pointer', marginLeft: 6, color: 'inherit' }}
+                            title="Unassign" disabled={busy}
+                            onClick={() => act(() => director({ action: 'unassign', passphrase: pass, director_name: name, slug: p.slug, member_id: a.team_member_id }))}
+                          >×</button>
+                        </span>
+                      ))}
+                      {mine.length === 0 && <span className="rv-q-meta">unassigned</span>}
+                    </span>
+                    <select value="" disabled={busy} onChange={(e) => {
+                      const id = e.target.value; if (!id) return;
+                      act(() => director({ action: 'assign', passphrase: pass, director_name: name, slug: p.slug, member_id: id }));
+                    }}>
+                      <option value="">Assign…</option>
+                      {team.filter((t) => !assignedIds.has(t.id)).map((t) => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })}
+              <div style={{ height: 60 }} />
+            </>
+          );
+        })()}
 
         {tab === 'history' && (
           <>
