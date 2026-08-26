@@ -23,6 +23,9 @@ async function director(payload) {
   return j;
 }
 
+const NOT_HERE = 'The quoted text is not in this field any more, so nothing is selected. '
+  + 'It may have already been edited, or it may live in a different field.';
+
 const stripCta = (md) => String(md || '').replace(/\{\{CTA_RFP\}\}/g, '').trim();
 
 /**
@@ -64,58 +67,61 @@ function scrollOffsetIntoView(ta, index) {
   ta.scrollTop = Math.max(0, top - ta.clientHeight / 2);
 }
 
-function EditTextarea({ value, onChange, comment, field }) {
-  const ref = useRef(null);
-  const [missed, setMissed] = useState(false);
+/**
+ * Where the comment's quoted words sit in the raw field text, or null.
+ * Shared so that selecting the span and removing it can never disagree about
+ * which span they mean.
+ */
+export function findQuoteInRaw(comment, field, text) {
+  const anchor = comment.anchor || null;
 
+  // The paragraph the comment came from gives an offset hint, but only in the
+  // field it was made against. On any other field the quote is still worth
+  // looking for, just without the hint.
+  let hint;
+  const home = anchor?.field === 'direct_answer' ? 'direct_answer' : 'body_md';
+  if (field === home && Number.isInteger(anchor?.paraIndex)) {
+    const paras = field === 'direct_answer'
+      ? [text]
+      : toBlocks(stripCta(text)).map((b) => b.text);
+    const para = paras[anchor.paraIndex];
+    if (para) {
+      const at = flexIndex(text, para.slice(0, 40));
+      if (at !== -1) hint = at + (anchor.start || 0);
+    }
+  }
+  return locateInRaw(anchor, text, comment.selected_text, hint);
+}
+
+/**
+ * Cut a span out, and tidy the one artefact that leaves behind: lifting words
+ * from mid-sentence strands two spaces where there was one.
+ */
+export function removeSpan(text, hit) {
+  let end = hit.end;
+  if (hit.start > 0 && /[ \t]/.test(text[hit.start - 1] || '') && /[ \t]/.test(text[end] || '')) end++;
+  return { value: text.slice(0, hit.start) + text.slice(end), caret: hit.start };
+}
+
+function EditTextarea({ value, onChange, comment, field, taRef, onResolve }) {
   // Runs on open and whenever the field selector changes -- deliberately not on
   // every keystroke, which would drag the selection back while the director types.
   useLayoutEffect(() => {
-    const ta = ref.current;
+    const ta = taRef.current;
     if (!ta) return;
-    const anchor = comment.anchor || null;
-    const text = ta.value;
-
-    // The paragraph the comment came from gives an offset hint, but only in the
-    // field it was made against. On any other field the quote is still worth
-    // looking for, just without the hint.
-    let hint;
-    const home = anchor?.field === 'direct_answer' ? 'direct_answer' : 'body_md';
-    if (field === home && Number.isInteger(anchor?.paraIndex)) {
-      const paras = field === 'direct_answer'
-        ? [text]
-        : toBlocks(stripCta(text)).map((b) => b.text);
-      const para = paras[anchor.paraIndex];
-      if (para) {
-        const at = flexIndex(text, para.slice(0, 40));
-        if (at !== -1) hint = at + (anchor.start || 0);
-      }
-    }
-
-    const hit = locateInRaw(anchor, text, comment.selected_text, hint);
+    const hit = findQuoteInRaw(comment, field, ta.value);
+    onResolve(hit);
     ta.focus({ preventScroll: true });
     if (!hit) {
-      setMissed(true);
       ta.setSelectionRange(0, 0);
       ta.scrollTop = 0;
       return;
     }
-    setMissed(false);
     ta.setSelectionRange(hit.start, hit.end);
     scrollOffsetIntoView(ta, hit.start);
   }, [comment.id, field]);
 
-  return (
-    <>
-      <textarea ref={ref} value={value} onChange={onChange} />
-      {missed && (
-        <p className="rv-hint" style={{ marginTop: 6 }}>
-          The quoted text is not in this field any more, so nothing is selected. It may have
-          already been edited, or it may live in a different field.
-        </p>
-      )}
-    </>
-  );
+  return <textarea ref={taRef} value={value} onChange={onChange} />;
 }
 
 /* ---------------- gates ---------------- */
@@ -190,6 +196,8 @@ export default function Queue() {
   const [filterPage, setFilterPage] = useState('all');
   const [filterStatus, setFilterStatus] = useState('open');
   const [editing, setEditing] = useState(null);        // { comment, field, value }
+  const [editNote, setEditNote] = useState('');       // why the quoted span could not be used
+  const taRef = useRef(null);                         // the open editor, shared with the remove button
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState('queue');
 
@@ -356,7 +364,10 @@ export default function Queue() {
                       onChange={(e) => setEditing({ ...editing, value: e.target.value })}
                       comment={c}
                       field={editing.field}
+                      taRef={taRef}
+                      onResolve={(hit) => setEditNote(hit ? '' : NOT_HERE)}
                     />
+                    {editNote && <p className="rv-hint" style={{ marginTop: 6 }}>{editNote}</p>}
                     <div className="rv-q-actions" style={{ marginTop: 10 }}>
                       <button className="rv-btn small" disabled={busy} onClick={() => act(async () => {
                         await director({
@@ -368,7 +379,18 @@ export default function Queue() {
                       <button className="rv-btn ghost small" onClick={() => setEditing(null)}>Cancel</button>
                       {c.flag_delete && (
                         <button className="rv-btn danger small" disabled={busy} onClick={() => {
-                          setEditing({ ...editing, value: editing.value.split(c.selected_text).join('') });
+                          // Same locator the editor selects with, so this removes the span the
+                          // director can see highlighted -- and only that one, not every repeat
+                          // of the phrase, which a split/join would have taken out too.
+                          const hit = findQuoteInRaw(c, editing.field, editing.value);
+                          if (!hit) return setEditNote(NOT_HERE);
+                          const { value, caret } = removeSpan(editing.value, hit);
+                          setEditing({ ...editing, value });
+                          setEditNote('');
+                          requestAnimationFrame(() => {
+                            const ta = taRef.current;
+                            if (ta) { ta.focus(); ta.setSelectionRange(caret, caret); }
+                          });
                         }}>Remove the flagged text</button>
                       )}
                     </div>
