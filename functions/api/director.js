@@ -75,6 +75,28 @@ export async function onRequestPost(context) {
   // Everything else (page edits, reverts, moderation, roster) stays
   // director-only.
   const REVIEWER_ACTIONS = new Set(['comment_edit', 'comment_delete']);
+
+  /**
+   * The two tiers must not share a value. VITE_REVIEW_PASSPHRASE is compiled
+   * into the public browser bundle by design — it is a soft gate on a
+   * read-mostly surface, not a secret. DIRECTOR_PASSPHRASE is the opposite: it
+   * authorises rewriting and reverting any page and managing the roster, and
+   * never leaves the server. If they hold the same string, the director
+   * passphrase is published to every visitor who views source, and every check
+   * below silently passes for anyone.
+   *
+   * Fail loudly rather than quietly granting it. A 500 here is a visible,
+   * fixable outage; the alternative is an open door nobody notices.
+   */
+  if (env.REVIEW_PASSPHRASE && safeEqual(env.REVIEW_PASSPHRASE, env.DIRECTOR_PASSPHRASE)) {
+    return json({
+      ok: false,
+      error: 'Refusing to run: REVIEW_PASSPHRASE and DIRECTOR_PASSPHRASE are set to the same value. '
+           + 'The review passphrase ships in the public browser bundle, so sharing it with the director '
+           + 'passphrase would publish director access. Set REVIEW_PASSPHRASE to a different value.'
+    }, 500);
+  }
+
   const isDirector = safeEqual(passphrase, env.DIRECTOR_PASSPHRASE);
   const isReviewer = env.REVIEW_PASSPHRASE ? safeEqual(passphrase, env.REVIEW_PASSPHRASE) : false;
 
