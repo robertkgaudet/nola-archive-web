@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { fetchAll, configError } from '../supabase.js';
-import { locate } from './anchor.js';
+import { locate, locateInRaw, flexIndex } from './anchor.js';
 import { toBlocks } from './Review.jsx';
 import './review.css';
 
@@ -24,6 +24,99 @@ async function director(payload) {
 }
 
 const stripCta = (md) => String(md || '').replace(/\{\{CTA_RFP\}\}/g, '').trim();
+
+/**
+ * Put the caret on the words the comment is actually about.
+ *
+ * The quote is shown above the editor but was not marked inside it, so the
+ * director had to find it by eye in the raw markdown. Now the editor opens
+ * with the span selected and scrolled into view.
+ *
+ * Matching is the same order used for anchoring: the quote first, the
+ * remembered context to choose between repeats, the stored offset only as a
+ * tie-break. The textarea holds markdown, not rendered text, so the search is
+ * whitespace-tolerant -- see locateInRaw. A quote that can no longer be found
+ * is not an error: the caret stays at the top and the note above still says
+ * what was quoted.
+ */
+function scrollOffsetIntoView(ta, index) {
+  const cs = window.getComputedStyle(ta);
+  const mirror = document.createElement('div');
+  for (const prop of ['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'letterSpacing',
+    'lineHeight', 'textTransform', 'wordSpacing', 'textIndent', 'paddingTop', 'paddingRight',
+    'paddingBottom', 'paddingLeft', 'borderTopWidth', 'borderRightWidth', 'borderBottomWidth',
+    'borderLeftWidth', 'boxSizing']) mirror.style[prop] = cs[prop];
+  mirror.style.position = 'absolute';
+  mirror.style.top = '0';
+  mirror.style.left = '-9999px';
+  mirror.style.visibility = 'hidden';
+  mirror.style.height = 'auto';
+  mirror.style.whiteSpace = 'pre-wrap';
+  mirror.style.overflowWrap = 'break-word';
+  mirror.style.width = ta.clientWidth + 'px';
+  mirror.textContent = ta.value.slice(0, index);
+  const marker = document.createElement('span');
+  marker.textContent = '\u200b';  // zero-width, measured not seen
+  mirror.appendChild(marker);
+  document.body.appendChild(mirror);
+  const top = marker.offsetTop;
+  document.body.removeChild(mirror);
+  ta.scrollTop = Math.max(0, top - ta.clientHeight / 2);
+}
+
+function EditTextarea({ value, onChange, comment, field }) {
+  const ref = useRef(null);
+  const [missed, setMissed] = useState(false);
+
+  // Runs on open and whenever the field selector changes -- deliberately not on
+  // every keystroke, which would drag the selection back while the director types.
+  useLayoutEffect(() => {
+    const ta = ref.current;
+    if (!ta) return;
+    const anchor = comment.anchor || null;
+    const text = ta.value;
+
+    // The paragraph the comment came from gives an offset hint, but only in the
+    // field it was made against. On any other field the quote is still worth
+    // looking for, just without the hint.
+    let hint;
+    const home = anchor?.field === 'direct_answer' ? 'direct_answer' : 'body_md';
+    if (field === home && Number.isInteger(anchor?.paraIndex)) {
+      const paras = field === 'direct_answer'
+        ? [text]
+        : toBlocks(stripCta(text)).map((b) => b.text);
+      const para = paras[anchor.paraIndex];
+      if (para) {
+        const at = flexIndex(text, para.slice(0, 40));
+        if (at !== -1) hint = at + (anchor.start || 0);
+      }
+    }
+
+    const hit = locateInRaw(anchor, text, comment.selected_text, hint);
+    ta.focus({ preventScroll: true });
+    if (!hit) {
+      setMissed(true);
+      ta.setSelectionRange(0, 0);
+      ta.scrollTop = 0;
+      return;
+    }
+    setMissed(false);
+    ta.setSelectionRange(hit.start, hit.end);
+    scrollOffsetIntoView(ta, hit.start);
+  }, [comment.id, field]);
+
+  return (
+    <>
+      <textarea ref={ref} value={value} onChange={onChange} />
+      {missed && (
+        <p className="rv-hint" style={{ marginTop: 6 }}>
+          The quoted text is not in this field any more, so nothing is selected. It may have
+          already been edited, or it may live in a different field.
+        </p>
+      )}
+    </>
+  );
+}
 
 /* ---------------- gates ---------------- */
 function ReviewGate({ onEnter }) {
@@ -258,7 +351,12 @@ export default function Queue() {
                       The quoted text is “{c.selected_text.slice(0, 90)}”. Edit it below, or delete the span if it
                       is flagged. Saving snapshots the page first, so this is revertable from History.
                     </p>
-                    <textarea value={editing.value} onChange={(e) => setEditing({ ...editing, value: e.target.value })} />
+                    <EditTextarea
+                      value={editing.value}
+                      onChange={(e) => setEditing({ ...editing, value: e.target.value })}
+                      comment={c}
+                      field={editing.field}
+                    />
                     <div className="rv-q-actions" style={{ marginTop: 10 }}>
                       <button className="rv-btn small" disabled={busy} onClick={() => act(async () => {
                         await director({
