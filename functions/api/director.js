@@ -16,6 +16,9 @@
  * INSERT/SELECT on page_comments and nothing else.
  */
 
+import { computeSchedule, normalizeOptions } from '../../shared/schedule.js';
+import { mdToHtml, wpCreateFuturePost, wpFindBySlug, wpConfigured, wpWhoAmI } from './_publish.js';
+
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
@@ -272,6 +275,145 @@ export async function onRequestPost(context) {
         if (!comment_id) return json({ ok: false, error: 'comment_id is required' }, 400);
         await q(`page_comments?id=eq.${encodeURIComponent(comment_id)}`, { method: 'DELETE' });
         return json({ ok: true });
+      }
+
+      /* ================= publishing =================
+       * None of these appear in REVIEWER_ACTIONS, so every one of them
+       * requires the director passphrase. A page reaches WordPress only via
+       * approve -> schedule_commit -> publish_push, each an explicit act.
+       */
+
+      // ---- draft <-> approved ----
+      case 'approve':
+      case 'unapprove': {
+        const { slugs } = payload;
+        if (!Array.isArray(slugs) || !slugs.length) {
+          return json({ ok: false, error: 'slugs is required' }, 400);
+        }
+        const to = action === 'approve' ? 'approved' : 'draft';
+        // Only move pages that are still in the other state. A scheduled or
+        // published page is not silently dragged backwards by a stray click.
+        const from = action === 'approve' ? 'draft' : 'approved';
+        const list = slugs.map((s) => `"${String(s).replace(/"/g, '')}"`).join(',');
+        const rows = await q(
+          `pages?slug=in.(${encodeURIComponent(list)})&publish_status=eq.${from}`,
+          { method: 'PATCH', body: { publish_status: to }, prefer: 'return=representation' }
+        );
+        return json({ ok: true, changed: (rows || []).length, to });
+      }
+
+      // ---- work out the calendar without writing anything ----
+      case 'schedule_preview':
+      case 'schedule_commit': {
+        const norm = normalizeOptions(payload.options || {});
+        if (!norm.ok) return json({ ok: false, error: norm.error }, 400);
+
+        const approved = await q('pages?select=slug,title,publish_status'
+          + '&publish_status=in.(approved,scheduled)&order=title.asc');
+        const eligible = new Set((approved || []).map((p) => p.slug));
+
+        // The director may set the order; anything they send that is not
+        // schedulable is dropped rather than silently scheduled.
+        const asked = Array.isArray(payload.slugs) && payload.slugs.length
+          ? payload.slugs.filter((s) => eligible.has(s))
+          : (approved || []).map((p) => p.slug);
+
+        if (!asked.length) {
+          return json({ ok: false, error: 'No approved pages to schedule.' }, 400);
+        }
+
+        const schedule = computeSchedule(asked, norm.opts);
+
+        if (action === 'schedule_preview') {
+          return json({ ok: true, schedule, count: schedule.length, wrote: false });
+        }
+
+        // Commit: the plan only. Still nothing on WordPress.
+        for (const item of schedule) {
+          await q(`pages?slug=eq.${encodeURIComponent(item.slug)}`, {
+            method: 'PATCH',
+            body: { scheduled_date: item.date, publish_status: 'scheduled' }
+          });
+        }
+        return json({ ok: true, schedule, count: schedule.length, wrote: true });
+      }
+
+      // ---- put a scheduled page back to approved, clearing its date ----
+      case 'schedule_clear': {
+        const rows = await q('pages?publish_status=eq.scheduled', {
+          method: 'PATCH',
+          body: { publish_status: 'approved', scheduled_date: null },
+          prefer: 'return=representation'
+        });
+        return json({ ok: true, cleared: (rows || []).length });
+      }
+
+      // ---- the only action that talks to WordPress ----
+      case 'publish_check': {
+        if (!wpConfigured(env)) {
+          return json({ ok: false, error: 'WordPress is not configured. Set WP_BASE_URL, WP_USER and WP_APP_PASSWORD as Pages secrets.' }, 500);
+        }
+        const me = await wpWhoAmI(env);
+        return json({ ok: true, user: { name: me.name, id: me.id, roles: me.roles || [] } });
+      }
+
+      case 'publish_push': {
+        if (!wpConfigured(env)) {
+          return json({ ok: false, error: 'WordPress is not configured. Set WP_BASE_URL, WP_USER and WP_APP_PASSWORD as Pages secrets.' }, 500);
+        }
+        const ctaUrl = payload.cta_url || env.WP_CTA_URL || '';
+        const categoryId = payload.category_id || env.WP_CATEGORY_ID || null;
+
+        const pages = await q('pages?select=slug,title,body_md,meta_description,scheduled_date,wp_post_id'
+          + '&publish_status=eq.scheduled&order=scheduled_date.asc');
+
+        const pushed = [];
+        const failed = [];
+        const skipped = [];
+
+        for (const page of pages || []) {
+          // Idempotent: a page that already carries a WordPress id has been
+          // sent, so re-running the push never creates a second post.
+          if (page.wp_post_id) { skipped.push({ slug: page.slug, wp_post_id: page.wp_post_id }); continue; }
+          if (!page.scheduled_date) { failed.push({ slug: page.slug, error: 'no scheduled_date' }); continue; }
+
+          try {
+            // Adopt a post that already exists for this slug instead of making
+            // a second one — covers a previous run that created the post but
+            // failed before recording its id.
+            const existing = await wpFindBySlug(env, page.slug);
+            if (existing) {
+              await q(`pages?slug=eq.${encodeURIComponent(page.slug)}`, {
+                method: 'PATCH',
+                body: { wp_post_id: existing.id, published_url: existing.link || null, publish_status: 'published' }
+              });
+              skipped.push({ slug: page.slug, wp_post_id: existing.id, adopted: true });
+              continue;
+            }
+
+            const post = await wpCreateFuturePost(env, {
+              title: page.title,
+              slug: page.slug,
+              html: mdToHtml(page.body_md, ctaUrl),
+              date: String(page.scheduled_date).slice(0, 19).replace(' ', 'T'),
+              categoryId,
+              metaDescription: page.meta_description
+            });
+            await q(`pages?slug=eq.${encodeURIComponent(page.slug)}`, {
+              method: 'PATCH',
+              body: {
+                wp_post_id: post.id,
+                published_url: post.link || null,
+                publish_status: 'published'
+              }
+            });
+            pushed.push({ slug: page.slug, wp_post_id: post.id, url: post.link, date: post.date });
+          } catch (e) {
+            // One bad post must not abandon the rest of the run.
+            failed.push({ slug: page.slug, error: String(e.message || e).slice(0, 200) });
+          }
+        }
+        return json({ ok: true, pushed, failed, skipped });
       }
 
       default:

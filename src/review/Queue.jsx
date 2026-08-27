@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { fetchAll, configError } from '../supabase.js';
 import { locate, locateInRaw, flexIndex } from './anchor.js';
 import { toBlocks } from './Review.jsx';
+import Publish from './Publish.jsx';
 import './review.css';
 
 const REVIEW_PASSPHRASE = import.meta.env.VITE_REVIEW_PASSPHRASE || '';
@@ -124,6 +125,22 @@ function EditTextarea({ value, onChange, comment, field, taRef, onResolve }) {
   return <textarea ref={taRef} value={value} onChange={onChange} />;
 }
 
+/**
+ * The publishing columns arrive with migration 009. Asking for a column that
+ * does not exist fails the whole query, which would take the queue down rather
+ * than just hiding the scheduler, so fall back and report which it got.
+ */
+const PAGE_COLS = 'id, slug, title, direct_answer, body_md, meta_description';
+const PUBLISH_COLS = ', publish_status, scheduled_date, wp_post_id, published_url';
+
+async function loadPages() {
+  try {
+    return { rows: await fetchAll('pages', PAGE_COLS + PUBLISH_COLS), migrated: true };
+  } catch {
+    return { rows: await fetchAll('pages', PAGE_COLS), migrated: false };
+  }
+}
+
 /* ---------------- gates ---------------- */
 function ReviewGate({ onEnter }) {
   const [pass, setPass] = useState(''); const [name, setName] = useState(localStorage.getItem('rv_name') || ''); const [err, setErr] = useState('');
@@ -200,15 +217,16 @@ export default function Queue() {
   const taRef = useRef(null);                         // the open editor, shared with the remove button
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState('queue');
+  const [migrated, setMigrated] = useState(false);   // migration 009 present?
 
   const load = useCallback(async () => {
     try {
       const [p, c, v] = await Promise.all([
-        fetchAll('pages', 'id, slug, title, direct_answer, body_md, meta_description'),
+        loadPages(),
         fetchAll('page_comments', 'id, slug, reviewer_name, selected_text, anchor, comment_body, flag_delete, status, created_at, resolved_at, resolved_by'),
         fetchAll('page_versions', 'id, slug, note, created_at, edited_by')
       ]);
-      setPages(p); setComments(c); setVersions(v);
+      setPages(p.rows); setMigrated(p.migrated); setComments(c); setVersions(v);
       // optional until migration 007 has been run
       try {
         const [t, a] = await Promise.all([
@@ -275,6 +293,7 @@ export default function Queue() {
           <button className={`rv-link${tab === 'queue' ? ' on' : ''}`} style={{ background: 'none', border: 0, cursor: 'pointer' }} onClick={() => setTab('queue')}>Queue</button>
           <button className={`rv-link${tab === 'history' ? ' on' : ''}`} style={{ background: 'none', border: 0, cursor: 'pointer' }} onClick={() => setTab('history')}>History</button>
           <button className={`rv-link${tab === 'team' ? ' on' : ''}`} style={{ background: 'none', border: 0, cursor: 'pointer' }} onClick={() => setTab('team')}>Team</button>
+          <button className={`rv-link${tab === 'publish' ? ' on' : ''}`} style={{ background: 'none', border: 0, cursor: 'pointer' }} onClick={() => setTab('publish')}>Publish</button>
           <span className="rv-who">{dirName || name}</span>
         </div>
       </div>
@@ -489,6 +508,17 @@ export default function Queue() {
             </>
           );
         })()}
+
+        {tab === 'publish' && (
+          <Publish
+            pages={pages}
+            comments={comments}
+            migrated={migrated}
+            busy={busy}
+            call={(body) => director({ ...body, passphrase: pass, director_name: dirName })}
+            onChanged={load}
+          />
+        )}
 
         {tab === 'history' && (
           <>
