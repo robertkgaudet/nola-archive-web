@@ -192,16 +192,75 @@ mark.rv-mark.pending.del { box-shadow: inset 0 -2px 0 var(--flagred); border-bot
 .rv-edited { font-size: 12px; color: var(--mute); font-style: italic; }
 
 /* ---------------- publish scheduler (director only) ---------------- */
-.rv-pub { padding-bottom: 60px; }
-.rv-pub-counts { display: flex; gap: 10px; flex-wrap: wrap; margin: 4px 0 10px; }
-.rv-pub-count { flex: 1 1 110px; border: 1px solid var(--hair); border-radius: 8px;
-  padding: 12px 14px; background: var(--paper); }
-.rv-pub-count b { display: block; font-size: 24px; line-height: 1.1; font-family: var(--serif); }
-.rv-pub-count span { font-size: 12px; line-height: 1.4; color: var(--mute); text-transform: uppercase;
-  letter-spacing: .06em; }
-.rv-pub-count.approved b { color: var(--brass); }
-.rv-pub-count.scheduled b { color: #2f6f8f; }
-.rv-pub-count.published b { color: #2e7d46; }
+.rv-pub { padding-bottom: 80px; }
+
+/* Jump links. Sticky under the queue's own bar, whose height is measured at
+   runtime because it wraps to two rows on a narrow screen. Same 11px uppercase
+   scale as .rv-link — this is a sub-nav, not a second masthead. */
+.rv-pub-nav { position: sticky; top: var(--rv-bar-h, 62px); z-index: 20;
+  display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+  padding: 9px 0; margin-bottom: 26px;
+  background: rgba(255,255,255,.94); backdrop-filter: saturate(180%) blur(12px);
+  border-bottom: 1px solid var(--hair); }
+.rv-pub-jump { display: inline-flex; align-items: center; gap: 7px;
+  font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--slate); text-decoration: none; min-height: 34px; padding: 0 11px;
+  border: 1px solid var(--hair); border-radius: 999px; background: var(--paper);
+  transition: color .15s, border-color .15s; }
+.rv-pub-jump:hover { color: var(--ink); border-color: var(--brass); }
+.rv-pub-jump .c { font-size: 11px; letter-spacing: 0; color: var(--paper);
+  background: var(--mute); border-radius: 999px; min-width: 19px; height: 19px;
+  display: inline-flex; align-items: center; justify-content: center; padding: 0 5px; }
+.rv-pub-jump.emerald .c { background: var(--emerald); }
+.rv-pub-jump.brass   .c { background: var(--brass); }
+.rv-pub-jump.royal   .c { background: var(--royal); }
+
+.rv-pub-note { font-size: 14px; line-height: 1.6; padding: 10px 14px; margin: 0 0 20px;
+  border-left: 3px solid var(--brass); background: var(--porcelain); }
+
+/* A panel per state. Colour is an accent — a left rule and a header tint —
+   never a fill, so the page stays paper-white and the type carries it. */
+.rv-panel { border: 1px solid var(--hair); border-left: 3px solid var(--mute);
+  border-radius: 4px; background: var(--paper); padding: 20px 22px 22px;
+  margin-bottom: 22px; scroll-margin-top: var(--rv-jump, 118px); }
+.rv-panel:focus { outline: none; }
+.rv-panel:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; }
+.rv-panel.emerald { border-left-color: var(--emerald); }
+.rv-panel.brass   { border-left-color: var(--brass); }
+.rv-panel.royal   { border-left-color: var(--royal); }
+.rv-panel.mute    { border-left-color: var(--hair); background: var(--porcelain); }
+
+.rv-panel-hd { display: flex; align-items: baseline; gap: 12px; }
+.rv-panel-hd h2 { font-family: var(--serif); font-size: 27px; line-height: 1.2;
+  font-weight: 400; margin: 0; }
+.rv-panel-hd .n { font-size: 12px; font-weight: 600; letter-spacing: .08em;
+  color: var(--paper); background: var(--mute); border-radius: 999px;
+  min-width: 26px; height: 22px; display: inline-flex; align-items: center;
+  justify-content: center; padding: 0 8px; }
+.rv-panel.emerald .rv-panel-hd .n { background: var(--emerald); }
+.rv-panel.brass   .rv-panel-hd .n { background: var(--brass); }
+.rv-panel.royal   .rv-panel-hd .n { background: var(--royal); }
+
+.rv-panel-blurb { font-size: 13.5px; line-height: 1.6; color: var(--slate);
+  margin: 5px 0 16px; max-width: 68ch; }
+.rv-panel-empty { font-size: 14px; line-height: 1.6; color: var(--mute);
+  font-style: italic; margin: 0; }
+.rv-panel-sub { font-size: 11px; font-weight: 600; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--slate); margin: 26px 0 8px; }
+
+@media (max-width: 700px) {
+  .rv-panel { padding: 16px 15px 18px; }
+  .rv-panel-hd h2 { font-size: 23px; }
+  .rv-pub-nav { gap: 5px; }
+  .rv-pub-jump { padding: 0 9px; letter-spacing: .06em; }
+}
+
+/* Honour a request not to be moved: the jump becomes instant, not animated. */
+@media (prefers-reduced-motion: reduce) {
+  .rv-pub-jump { transition: none; }
+  .rv-panel { scroll-behavior: auto; }
+}
+
 
 .rv-pub-list { border: 1px solid var(--hair); border-radius: 8px; overflow: hidden; }
 .rv-pub-row { display: flex; align-items: center; gap: 10px; padding: 9px 13px; font-size: 14.5px;
