@@ -106,6 +106,8 @@ export default function Publish({ pages, comments, migrated, call, busy, onChang
   const [manual, setManual] = useState(null);
   const [result, setResult] = useState(null);
   const [note, setNote] = useState('');
+  const [checking, setChecking] = useState(false);   // Test connection in flight
+  const [checkMsg, setCheckMsg] = useState(null);     // { ok, text } shown beside the button
   const navRef = useRef(null);
 
   /**
@@ -164,6 +166,20 @@ export default function Publish({ pages, comments, migrated, call, busy, onChang
   const norm = normalizeOptions(opts);
   const schedule = norm.ok ? computeSchedule(ranked.map((p) => p.slug), norm.opts) : [];
   const titleOf = Object.fromEntries((pages || []).map((p) => [p.slug, p.title]));
+
+  // Guidance and guardrails for the cadence controls. A start in the past is
+  // the one setting that makes WordPress publish immediately instead of
+  // scheduling, so the date picker floors at tomorrow and Commit is blocked if
+  // the chosen day+hour still resolves to the past.
+  const pad2 = (n) => String(n).padStart(2, '0');
+  const tomorrowStr = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const HOURS = [9, 10, 11, 12, 13, 14, 15, 16, 17];
+  const hourLabel = (h) => `${((h + 11) % 12) + 1}:00 ${h < 12 ? 'AM' : 'PM'}`;
+  const startMs = (() => {
+    const t = new Date(`${opts.startDate}T${pad2(Number(opts.hour) || 0)}:00:00`).getTime();
+    return Number.isNaN(t) ? null : t;
+  })();
+  const startInPast = startMs !== null && startMs <= Date.now();
 
   function move(slug, dir) {
     const cur = ranked.map((p) => p.slug);
@@ -227,6 +243,14 @@ export default function Publish({ pages, comments, migrated, call, busy, onChang
         ))}
       </nav>
 
+      {/* ---------------- how this works, in order ---------------- */}
+      <ol className="rv-pub-steps">
+        <li>Approve pages (Draft panel below).</li>
+        <li>Set the cadence and check the calendar.</li>
+        <li>Commit the schedule — saves dates only, nothing sent.</li>
+        <li>Push to WordPress — posts arrive dated, WordPress releases each on its day.</li>
+      </ol>
+
       {note && <p className="rv-pub-note">{note}</p>}
 
       {/* ================= 1. published ================= */}
@@ -269,14 +293,20 @@ export default function Publish({ pages, comments, migrated, call, busy, onChang
           </p>
         )}
         <div className="rv-q-actions">
-          <button className="rv-btn ghost small" disabled={busy}
-            onClick={() => run(async () => {
-              const r = await call({ action: 'publish_check' });
-              setResult({ check: r.user });
-              return r;
-            }, (r) => `WordPress reachable as ${r.user.name}.`)}>
-            Test connection
+          <button className="rv-btn ghost small" disabled={busy || checking}
+            onClick={async () => {
+              setChecking(true); setCheckMsg(null);
+              try {
+                const r = await call({ action: 'publish_check' });
+                setCheckMsg({ ok: true, text: `Connected — WordPress reachable as ${r.user.name}.` });
+              } catch (e) {
+                setCheckMsg({ ok: false, text: e.message });
+              }
+              setChecking(false);
+            }}>
+            {checking ? 'Testing…' : 'Test connection'}
           </button>
+          {checkMsg && <span className={`rv-conn ${checkMsg.ok ? 'ok' : 'bad'}`}>{checkMsg.text}</span>}
           <span className="rv-spacer" />
           {scheduled.length > 0 && (
             <button className="rv-btn ghost small" disabled={busy}
@@ -299,6 +329,7 @@ export default function Publish({ pages, comments, migrated, call, busy, onChang
             {busy ? 'Pushing…' : `Push ${scheduled.length} to WordPress`}
           </button>
         </div>
+        <small className="rv-btn-help right">Sends posts to noladmc.com as scheduled. This writes to the live site.</small>
 
         {result?.pushed && (
           <div className="rv-pub-result">
@@ -354,36 +385,54 @@ export default function Publish({ pages, comments, migrated, call, busy, onChang
           <>
             <h3 className="rv-panel-sub">Cadence</h3>
             <div className="rv-pub-opts">
-              <label>Start
-                <input type="date" value={opts.startDate}
-                  onChange={(e) => setOpts({ ...opts, startDate: e.target.value })} />
-              </label>
-              <label>Release every
-                <input type="number" min="1" max="30" value={opts.everyDays}
-                  onChange={(e) => setOpts({ ...opts, everyDays: e.target.value })} />
-                <span className="u">days</span>
-              </label>
-              <label>Posts per release
-                <select value={opts.perRelease} onChange={(e) => setOpts({ ...opts, perRelease: Number(e.target.value) })}>
-                  <option value={1}>1</option><option value={2}>2</option><option value={3}>3</option>
-                </select>
-              </label>
-              <label>At
-                <input type="number" min="0" max="23" value={opts.hour}
-                  onChange={(e) => setOpts({ ...opts, hour: e.target.value })} />
-                <span className="u">:00</span>
-              </label>
-              <label className="chk">
-                <input type="checkbox" checked={opts.skipWeekends}
-                  onChange={(e) => setOpts({ ...opts, skipWeekends: e.target.checked })} />
-                Skip weekends
-              </label>
-              <label>Order
-                <select value={orderMode} onChange={(e) => { setOrderMode(e.target.value); setManual(null); }}>
-                  <option value="review">Review ranking</option>
-                  <option value="title">Title A–Z</option>
-                </select>
-              </label>
+              <div className="rv-opt">
+                <label>Start
+                  <input type="date" min={tomorrowStr} value={opts.startDate}
+                    onChange={(e) => setOpts({ ...opts, startDate: e.target.value })} />
+                </label>
+                <small className="rv-opt-help">The date the first post goes live.</small>
+              </div>
+              <div className="rv-opt">
+                <label>Release every
+                  <input type="number" min="1" max="30" value={opts.everyDays}
+                    onChange={(e) => setOpts({ ...opts, everyDays: e.target.value })} />
+                  <span className="u">days</span>
+                </label>
+                <small className="rv-opt-help">Days between releases. 1 = daily, 7 = weekly.</small>
+              </div>
+              <div className="rv-opt">
+                <label>Posts per release
+                  <select value={opts.perRelease} onChange={(e) => setOpts({ ...opts, perRelease: Number(e.target.value) })}>
+                    <option value={1}>1</option><option value={2}>2</option><option value={3}>3</option>
+                  </select>
+                </label>
+                <small className="rv-opt-help">How many posts go out on each release day.</small>
+              </div>
+              <div className="rv-opt">
+                <label>At
+                  <select value={Number(opts.hour)} onChange={(e) => setOpts({ ...opts, hour: Number(e.target.value) })}>
+                    {HOURS.map((h) => <option key={h} value={h}>{hourLabel(h)}</option>)}
+                  </select>
+                </label>
+                <small className="rv-opt-help">Time of day each post publishes.</small>
+              </div>
+              <div className="rv-opt">
+                <label className="chk">
+                  <input type="checkbox" checked={opts.skipWeekends}
+                    onChange={(e) => setOpts({ ...opts, skipWeekends: e.target.checked })} />
+                  Skip weekends
+                </label>
+                <small className="rv-opt-help">Moves any release landing on Sat/Sun to the next weekday.</small>
+              </div>
+              <div className="rv-opt">
+                <label>Order
+                  <select value={orderMode} onChange={(e) => { setOrderMode(e.target.value); setManual(null); }}>
+                    <option value="review">Review ranking</option>
+                    <option value="title">Title A–Z</option>
+                  </select>
+                </label>
+                <small className="rv-opt-help">Which page goes out first.</small>
+              </div>
             </div>
             <p className="rv-hint">
               Review ranking puts the pages with the least unresolved feedback first.
@@ -423,8 +472,13 @@ export default function Publish({ pages, comments, migrated, call, busy, onChang
                   ))}
                 </div>
 
+                {startInPast && (
+                  <p className="rv-err">
+                    Start must be in the future — posts dated in the past go live immediately.
+                  </p>
+                )}
                 <div className="rv-q-actions" style={{ marginTop: 14 }}>
-                  <button className="rv-btn small" disabled={busy}
+                  <button className="rv-btn small" disabled={busy || startInPast}
                     onClick={() => run(
                       () => call({ action: 'schedule_commit', options: opts, slugs: ranked.map((p) => p.slug) }),
                       (r) => `Scheduled ${r.count} pages. Nothing has been sent to WordPress yet.`
@@ -432,6 +486,7 @@ export default function Publish({ pages, comments, migrated, call, busy, onChang
                     {busy ? 'Working…' : `Commit this schedule (${schedule.length})`}
                   </button>
                 </div>
+                <small className="rv-btn-help">Saves dates. Nothing is sent to the website.</small>
               </>
             )}
           </>

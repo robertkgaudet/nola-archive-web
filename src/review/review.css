@@ -309,3 +309,32 @@ mark.rv-mark.pending.del { box-shadow: inset 0 -2px 0 var(--flagred); border-bot
   .rv-cal-row { flex-direction: column; }
   .rv-cal-row .d { flex: 1 1 auto; border-right: 0; border-bottom: 1px solid var(--hair); }
 }
+
+/* ---------------- publish tab — inline guidance for non-technical users ---------------- */
+.rv-pub-steps { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 0 0 22px; padding: 15px 17px;
+  border: 1px solid var(--hair); border-radius: 8px; background: var(--porcelain);
+  counter-reset: step; list-style: none; }
+.rv-pub-steps li { position: relative; flex: 1 1 210px; padding-left: 30px; font-size: 13px;
+  line-height: 1.5; color: var(--slate); }
+.rv-pub-steps li::before { counter-increment: step; content: counter(step);
+  position: absolute; left: 0; top: 1px; width: 21px; height: 21px; border-radius: 999px;
+  background: var(--royal); color: #fff; font-size: 11px; font-weight: 600;
+  display: inline-flex; align-items: center; justify-content: center; }
+
+/* each cadence control becomes a column so its one-line helper sits beneath it */
+.rv-pub-opts { align-items: flex-start; }
+.rv-opt { display: flex; flex-direction: column; gap: 5px; }
+.rv-opt-help { font-size: 11.5px; line-height: 1.45; color: var(--mute); max-width: 23ch; }
+
+/* consequence text under a button */
+.rv-btn-help { display: block; font-size: 11.5px; line-height: 1.45; color: var(--mute); margin-top: 6px; }
+.rv-btn-help.right { text-align: right; }
+
+/* Test connection result, shown beside the button instead of at the top of the tab */
+.rv-conn { font-size: 12.5px; line-height: 1.4; padding: 4px 2px; }
+.rv-conn.ok { color: var(--emerald); }
+.rv-conn.bad { color: var(--flagred); }
+
+@media (max-width: 700px) {
+  .rv-btn-help.right { text-align: left; }
+}
