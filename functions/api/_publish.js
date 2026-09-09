@@ -118,14 +118,15 @@ async function wp(env, path, { method = 'GET', body } = {}) {
 
   if (!res.ok) {
     const code = data?.code || `http_${res.status}`;
-    // The tell for a stripped Authorization header: WordPress says "not logged
-    // in" rather than rejecting the credential. A wrong password would come
-    // back as incorrect_password. Worth naming, because the fix is on the
-    // server, not in this code.
+    // rest_not_logged_in means WordPress finished the request as an anonymous
+    // user. On this stack (nginx + PHP-FPM behind Cloudflare) the Authorization
+    // header is confirmed to reach PHP, so the credential is the thing to check,
+    // not transport.
     if (res.status === 401 && code === 'rest_not_logged_in') {
-      throw new Error('401 rest_not_logged_in — WordPress never saw the auth header. '
-        + 'The origin is stripping it before PHP; this is a hosting transport problem, '
-        + 'not a wrong password.');
+      throw new Error('401 rest_not_logged_in — WordPress received the request as anonymous; '
+        + 'the credential was not accepted. Verify WP_USER is the exact login of the user who '
+        + 'owns the application password, and that WP_APP_PASSWORD has not been revoked or '
+        + 'regenerated in wp-admin. (nginx + PHP-FPM behind Cloudflare — no .htaccess applies.)');
     }
     throw new Error(`${res.status} ${code}: ${String(data?.message || text).slice(0, 160)}`);
   }
